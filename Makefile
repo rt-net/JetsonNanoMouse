@@ -16,6 +16,7 @@ install: rtmouse.ko
 	sleep 1
 	sudo chmod 666 /dev/rtled*
 	sudo chmod 666 /dev/rtswitch*
+	sudo chmod 666 /dev/rtlightsensor*
 
 uninstall:
 	sudo rmmod rtmouse
