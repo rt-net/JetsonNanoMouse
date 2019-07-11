@@ -236,7 +236,7 @@ static ssize_t sw_read(struct file *filep, char __user *buf, size_t count,
 	if (*f_pos > 0)
 		return 0; /* End of file */
 
-	ret = gpio_get_value(pin);
+	ret = !gpio_get_value(pin);
 	sprintf(rw_buf, "%d\n", ret);
 
 	buflen = strlen(rw_buf);
