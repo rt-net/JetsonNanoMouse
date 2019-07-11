@@ -19,12 +19,12 @@ static unsigned int gpioLED0 = 13;  // PIN22
 static unsigned int gpioLED1 = 15;  // PIN18
 static unsigned int gpioLED2 = 232; // PIN16
 static unsigned int gpioLED3 = 79;  // PIN16
-static unsigned int gpioSW0 = 77;   // PIN38
+static unsigned int gpioSW0 = 78;   // PIN40
 static unsigned int gpioSW1 = 12;   // PIN37
-static unsigned int gpioSW2 = 78;   // PIN40
+static unsigned int gpioSW2 = 77;   // PIN38
 static unsigned int gpioSENR = 194; // PIN15
-static unsigned int gpioSENL = 216; // PIN7
-static unsigned int gpioSENRF = 14; // PI13
+static unsigned int gpioSENL = 149; // PIN29
+static unsigned int gpioSENRF = 14; // PIN13
 static unsigned int gpioSENLF = 50; // PIN11
 
 static unsigned int MAX_BUFLEN = 64;
