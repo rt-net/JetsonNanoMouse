@@ -19,11 +19,11 @@ MODULE_VERSION("0.1");
 #define gpioLED1 15       // PIN18
 #define gpioLED2 232      // PIN16
 #define gpioLED3 79       // PIN16
-#define gpioSW0 77	// PIN38
+#define gpioSW0 78	// PIN40
 #define gpioSW1 12	// PIN37
-#define gpioSW2 78	// PIN40
+#define gpioSW2 77	// PIN38
 #define gpioSENR 194      // PIN15
-#define gpioSENL 216      // PIN7
+#define gpioSENL 149      // PIN29
 #define gpioSENRF 14      // PI13
 #define gpioSENLF 50      // PIN11
 #define gpioMOTOREN 200   // PIN31
@@ -245,7 +245,7 @@ static ssize_t sw_read(struct file *filep, char __user *buf, size_t count,
 	if (*f_pos > 0)
 		return 0; /* End of file */
 
-	ret = gpio_get_value(pin);
+	ret = !gpio_get_value(pin);
 	sprintf(rw_buf, "%d\n", ret);
 
 	buflen = strlen(rw_buf);
