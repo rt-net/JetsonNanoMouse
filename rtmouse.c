@@ -10,35 +10,28 @@
 #include <linux/uaccess.h>
 
 MODULE_AUTHOR("RT Corporation");
-MODULE_DESCRIPTION("A simple driver for controlling Jetson Nano");
+MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1");
 
 /* --- GPIO Pins --- */
-static unsigned int gpioLED0 = 13;  // PIN22
-static unsigned int gpioLED1 = 15;  // PIN18
-static unsigned int gpioLED2 = 232; // PIN16
-static unsigned int gpioLED3 = 79;  // PIN16
-static unsigned int gpioSW0 = 77;   // PIN38
-static unsigned int gpioSW1 = 12;   // PIN37
-static unsigned int gpioSW2 = 78;   // PIN40
-static unsigned int gpioSENR = 194; // PIN15
-static unsigned int gpioSENL = 216; // PIN7
-static unsigned int gpioSENRF = 14; // PI13
-static unsigned int gpioSENLF = 50; // PIN11
+#define gpioLED0 13       // PIN22
+#define gpioLED1 15       // PIN18
+#define gpioLED2 232      // PIN16
+#define gpioLED3 79       // PIN16
+#define gpioSW0 77	// PIN38
+#define gpioSW1 12	// PIN37
+#define gpioSW2 78	// PIN40
+#define gpioSENR 194      // PIN15
+#define gpioSENL 216      // PIN7
+#define gpioSENRF 14      // PI13
+#define gpioSENLF 50      // PIN11
+#define gpioMOTOREN 200   // PIN31
+#define gpioMOTORDIRR 168 // PIN32
+#define gpioMOTORDIRL 216 // PIN7
 
-static unsigned int MAX_BUFLEN = 64;
-static unsigned int DEBOUNCE_TIME = 50;
-
-static struct cdev *cdev_array = NULL;
-static struct class *class_led = NULL;
-static struct class *class_switch = NULL;
-static struct class *class_sensor = NULL;
-
-static volatile int cdev_index = 0;
-static volatile int open_counter = 0;
-
-static struct mutex lock;
+#define MAX_BUFLEN 64
+#define DEBOUNCE_TIME 50
 
 #define DEV_MAJOR 0
 #define DEV_MINOR 0
@@ -48,13 +41,26 @@ static struct mutex lock;
 #define NUM_DEV_LED 4
 #define NUM_DEV_SWITCH 3
 #define NUM_DEV_SENSOR 1
-#define NUM_DEV_TOTAL (NUM_DEV_LED + NUM_DEV_SWITCH + NUM_DEV_SENSOR)
+#define NUM_DEV_MOTOREN 1
+#define NUM_DEV_TOTAL (NUM_DEV_LED + NUM_DEV_SWITCH + NUM_DEV_SENSOR + NUM_DEV_MOTOREN)
 
 #define DRIVER_NAME "rtmouse"
 
 #define DEVNAME_LED "rtled"
 #define DEVNAME_SWITCH "rtswitch"
 #define DEVNAME_SENSOR "rtlightsensor"
+#define DEVNAME_MOTOREN "rtmotoren"
+
+static struct cdev *cdev_array = NULL;
+static struct class *class_led = NULL;
+static struct class *class_switch = NULL;
+static struct class *class_sensor = NULL;
+static struct class *class_motoren = NULL;
+
+static volatile int cdev_index = 0;
+static volatile int open_counter = 0;
+
+static struct mutex lock;
 
 static int _major_led = DEV_MAJOR;
 static int _minor_led = DEV_MINOR;
@@ -64,6 +70,9 @@ static int _minor_switch = DEV_MINOR;
 
 static int _major_sensor = DEV_MAJOR;
 static int _minor_sensor = DEV_MINOR;
+
+static int _major_motoren = DEV_MAJOR;
+static int _minor_motoren = DEV_MINOR;
 
 /* SPI Parameters */
 static int spi_bus_num = 0;
@@ -75,10 +84,10 @@ static int spi_chip_select = 0;
 #define MCP320X_SINGLE 1
 #define MCP3204_CHANNELS 4
 /* --- A/D Channels --- */
-static unsigned int R_AD_CH = 3;
-static unsigned int L_AD_CH = 0;
-static unsigned int RF_AD_CH = 2;
-static unsigned int LF_AD_CH = 1;
+#define R_AD_CH 3
+#define L_AD_CH 0
+#define RF_AD_CH 2
+#define LF_AD_CH 1
 
 /* --- Function Declarations --- */
 static int mcp3204_remove(struct spi_device *spi);
@@ -325,6 +334,32 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 	return count;
 }
 
+/*
+ * motoren_write - Trun ON/OFF motor enable signal
+ * Write function of /dev/rtmotoren
+ */
+static ssize_t motoren_write(struct file *filep, const char __user *buf,
+			 size_t count, loff_t *f_pos)
+{
+	char cval;
+
+	if (count > 0) {
+		if (copy_from_user(&cval, buf, sizeof(char))) {
+			return -EFAULT;
+		}
+		switch (cval) {
+		case '1':
+			gpio_set_value(gpioMOTOREN, true);
+			break;
+		case '0':
+			gpio_set_value(gpioMOTOREN, false);
+			break;
+		}
+		return sizeof(char);
+	}
+	return 0;
+}
+
 static int dev_open(struct inode *inode, struct file *filep)
 {
 	int *minor = (int *)kmalloc(sizeof(int), GFP_KERNEL);
@@ -362,6 +397,12 @@ static struct file_operations sensor_fops = {
     .open = dev_open,
     .read = sensor_read,
     .release = dev_release,
+};
+/* /dev/rtmotoren */
+static struct file_operations motoren_fops = {
+    .open = dev_open,
+	.write = motoren_write,
+	.release = dev_release,
 };
 
 /* --- Device Driver Registration and Device File Creation --- */
@@ -439,6 +480,46 @@ static int switch_register_dev(void)
 		}
 		cdev_index++;
 	}
+	return 0;
+}
+
+/* /dev/rtmotoren0 */
+static int motoren_register_dev(void)
+{
+	int retval;
+	dev_t dev;
+	dev_t devno;
+
+	retval =
+	    alloc_chrdev_region(&dev,
+				DEV_MINOR,
+				NUM_DEV_MOTOREN,
+				DEVNAME_MOTOREN
+				);
+
+	if (retval < 0) {
+		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		return retval;
+	}
+	_major_motoren = MAJOR(dev);
+
+	class_motoren = class_create(THIS_MODULE, DEVNAME_MOTOREN);
+	if (IS_ERR(class_motoren)) {
+		return PTR_ERR(class_motoren);
+	}
+
+	devno = MKDEV(_major_motoren, _minor_motoren);
+	cdev_init(&(cdev_array[cdev_index]), &motoren_fops);
+	cdev_array[cdev_index].owner = THIS_MODULE;
+	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
+		printk(KERN_ERR "cdev_add failed minor = %d\n", _minor_motoren);
+	} else {
+		device_create(class_motoren, NULL, devno, NULL,
+			      DEVNAME_MOTOREN "%u", _minor_motoren);
+	}
+
+	cdev_index++;
+
 	return 0;
 }
 
@@ -697,15 +778,15 @@ static int __init init_mod(void)
 		return -ENODEV;
 	}
 	if (!gpio_is_valid(gpioLED1)) {
-		printk(KERN_INFO "GPIO: invalid LED0 GPIO\n");
+		printk(KERN_INFO "GPIO: invalid LED1 GPIO\n");
 		return -ENODEV;
 	}
 	if (!gpio_is_valid(gpioLED2)) {
-		printk(KERN_INFO "GPIO: invalid LED0 GPIO\n");
+		printk(KERN_INFO "GPIO: invalid LED2 GPIO\n");
 		return -ENODEV;
 	}
 	if (!gpio_is_valid(gpioLED3)) {
-		printk(KERN_INFO "GPIO: invalid LED0 GPIO\n");
+		printk(KERN_INFO "GPIO: invalid LED3 GPIO\n");
 		return -ENODEV;
 	}
 
@@ -725,6 +806,15 @@ static int __init init_mod(void)
 
 	retval = gpio_direction_output(gpioLED3, 0);
 	retval = gpio_export(gpioLED3, false);
+
+	if (!gpio_is_valid(gpioMOTOREN)) {
+		printk(KERN_INFO "GPIO: invalid MOTOR EN GPIO\n");
+		return -ENODEV;
+	}
+	retval = gpio_request(gpioMOTOREN, "sysfs");
+
+	retval = gpio_direction_output(gpioMOTOREN, 0);
+	retval = gpio_export(gpioMOTOREN, true);
 
 	if (!gpio_is_valid(gpioSENR)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR RIGHT GPIO\n");
@@ -772,6 +862,12 @@ static int __init init_mod(void)
 		       DRIVER_NAME);
 		return retval;
 	}
+	retval = motoren_register_dev();
+	if (retval != 0) {
+		printk(KERN_ALERT "%s: motoren driver register failed.\n",
+		       DRIVER_NAME);
+		return retval;
+	}
 	retval = sensor_register_dev();
 	if (retval != 0) {
 		printk(KERN_ALERT "%s: sensor driver register failed.\n",
@@ -814,6 +910,11 @@ static void __exit cleanup_mod(void)
 	}
 	unregister_chrdev_region(devno_top, NUM_DEV_SWITCH);
 
+	/* /dev/rtmotoren0 */
+	devno = MKDEV(_major_motoren, _minor_motoren);
+	device_destroy(class_motoren, devno);
+	unregister_chrdev_region(devno, NUM_DEV_MOTOREN);
+
 	/* /dev/rtlightsensor0 */
 	devno = MKDEV(_major_sensor, _minor_sensor);
 	device_destroy(class_sensor, devno);
@@ -822,6 +923,7 @@ static void __exit cleanup_mod(void)
 	class_destroy(class_led);
 	class_destroy(class_switch);
 	class_destroy(class_sensor);
+	class_destroy(class_motoren);
 
 	mcp3204_exit();
 
@@ -834,14 +936,16 @@ static void __exit cleanup_mod(void)
 	gpio_set_value(gpioLED1, 0);
 	gpio_set_value(gpioLED2, 0);
 	gpio_set_value(gpioLED3, 0);
+	gpio_set_value(gpioMOTOREN, 0);
 	gpio_unexport(gpioLED0);
 	gpio_unexport(gpioLED1);
 	gpio_unexport(gpioLED2);
 	gpio_unexport(gpioLED3);
 	gpio_unexport(gpioSENR);
-	gpio_unexport(gpioSENL);
+	// gpio_unexport(gpioSENL);
 	gpio_unexport(gpioSENRF);
 	gpio_unexport(gpioSENLF);
+	// gpio_unexport(gpioMOTOREN);
 	gpio_free(gpioLED0);
 	gpio_free(gpioLED1);
 	gpio_free(gpioLED2);
@@ -853,6 +957,7 @@ static void __exit cleanup_mod(void)
 	gpio_free(gpioSENL);
 	gpio_free(gpioSENRF);
 	gpio_free(gpioSENLF);
+	gpio_free(gpioMOTOREN);
 	printk("module being removed at %lu\n", jiffies);
 }
 
