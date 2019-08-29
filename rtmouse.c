@@ -202,7 +202,7 @@ static int parse_count(const char __user *buf, size_t count, int *ret)
 			if (bufcnt == 0) {
 				sgn = -1;
 			}
-		} else if (cval < '0' || cval > '9') {
+		} else if ((cval < '0' || cval > '9') && cval != '.') {
 			newbuf[bufcnt] = 'e';
 			error = 1;
 		} else {
@@ -217,11 +217,15 @@ static int parse_count(const char __user *buf, size_t count, int *ret)
 	}
 
 	freq = 0;
-	for (i = 0, tmp = 1; i < bufcnt; i++) {
+	tmp = 1;
+	for (i = 0; i < bufcnt; i++) {
 		char c = newbuf[bufcnt - i - 1];
 		if (c >= '0' && c <= '9') {
 			freq += (newbuf[bufcnt - i - 1] - '0') * tmp;
 			tmp *= 10;
+		} else if (c == '.') {
+			freq = 0;
+			tmp = 1;
 		}
 	}
 
