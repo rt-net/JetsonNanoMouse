@@ -349,10 +349,10 @@ static ssize_t motoren_write(struct file *filep, const char __user *buf,
 		}
 		switch (cval) {
 		case '1':
-			gpio_set_value(gpioMOTOREN, true);
+			gpio_set_value(gpioMOTOREN, 1);
 			break;
 		case '0':
-			gpio_set_value(gpioMOTOREN, false);
+			gpio_set_value(gpioMOTOREN, 0);
 			break;
 		}
 		return sizeof(char);
@@ -763,15 +763,15 @@ static int __init init_mod(void)
 
 	retval = gpio_direction_input(gpioSW0);
 	retval = gpio_set_debounce(gpioSW0, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW0, false);
+	retval = gpio_export(gpioSW0, 0);
 
 	retval = gpio_direction_input(gpioSW1);
 	retval = gpio_set_debounce(gpioSW1, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW1, false);
+	retval = gpio_export(gpioSW1, 0);
 
 	retval = gpio_direction_input(gpioSW2);
 	retval = gpio_set_debounce(gpioSW2, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW2, false);
+	retval = gpio_export(gpioSW2, 0);
 
 	if (!gpio_is_valid(gpioLED0)) {
 		printk(KERN_INFO "GPIO: invalid LED0 GPIO\n");
@@ -796,16 +796,16 @@ static int __init init_mod(void)
 	retval = gpio_request(gpioLED3, "sysfs");
 
 	retval = gpio_direction_output(gpioLED0, 0);
-	retval = gpio_export(gpioLED0, false);
+	retval = gpio_export(gpioLED0, 0);
 
 	retval = gpio_direction_output(gpioLED1, 0);
-	retval = gpio_export(gpioLED1, false);
+	retval = gpio_export(gpioLED1, 0);
 
 	retval = gpio_direction_output(gpioLED2, 0);
-	retval = gpio_export(gpioLED2, false);
+	retval = gpio_export(gpioLED2, 0);
 
 	retval = gpio_direction_output(gpioLED3, 0);
-	retval = gpio_export(gpioLED3, false);
+	retval = gpio_export(gpioLED3, 0);
 
 	if (!gpio_is_valid(gpioMOTOREN)) {
 		printk(KERN_INFO "GPIO: invalid MOTOR EN GPIO\n");
@@ -814,7 +814,7 @@ static int __init init_mod(void)
 	retval = gpio_request(gpioMOTOREN, "sysfs");
 
 	retval = gpio_direction_output(gpioMOTOREN, 0);
-	retval = gpio_export(gpioMOTOREN, true);
+	retval = gpio_export(gpioMOTOREN, 1);
 
 	if (!gpio_is_valid(gpioSENR)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR RIGHT GPIO\n");
@@ -839,13 +839,13 @@ static int __init init_mod(void)
 	retval = gpio_request(gpioSENLF, "sysfs");
 
 	retval = gpio_direction_output(gpioSENR, 0);
-	retval = gpio_export(gpioSENR, false);
+	retval = gpio_export(gpioSENR, 0);
 	retval = gpio_direction_output(gpioSENL, 0);
-	retval = gpio_export(gpioSENL, false);
+	retval = gpio_export(gpioSENL, 0);
 	retval = gpio_direction_output(gpioSENRF, 0);
-	retval = gpio_export(gpioSENRF, false);
+	retval = gpio_export(gpioSENRF, 0);
 	retval = gpio_direction_output(gpioSENLF, 0);
-	retval = gpio_export(gpioSENLF, false);
+	retval = gpio_export(gpioSENLF, 0);
 
 	size = sizeof(struct cdev) * NUM_DEV_TOTAL;
 	cdev_array = (struct cdev *)kmalloc(size, GFP_KERNEL);
@@ -932,20 +932,27 @@ static void __exit cleanup_mod(void)
 	mutex_destroy(&lock);
 
 	/* GPIO unmap */
+	/* set all gpio as low */
 	gpio_set_value(gpioLED0, 0);
 	gpio_set_value(gpioLED1, 0);
 	gpio_set_value(gpioLED2, 0);
 	gpio_set_value(gpioLED3, 0);
+	gpio_set_value(gpioSENR, 0);
+	gpio_set_value(gpioSENL, 0);
+	gpio_set_value(gpioSENRF, 0);
+	gpio_set_value(gpioSENLF, 0);
 	gpio_set_value(gpioMOTOREN, 0);
+	/* sysfs: reverses the effect of exporting to userspace */
 	gpio_unexport(gpioLED0);
 	gpio_unexport(gpioLED1);
 	gpio_unexport(gpioLED2);
 	gpio_unexport(gpioLED3);
 	gpio_unexport(gpioSENR);
-	// gpio_unexport(gpioSENL);
+	gpio_unexport(gpioSENL);
 	gpio_unexport(gpioSENRF);
 	gpio_unexport(gpioSENLF);
-	// gpio_unexport(gpioMOTOREN);
+	gpio_unexport(gpioMOTOREN);
+	/* reverse gpio_export() */
 	gpio_free(gpioLED0);
 	gpio_free(gpioLED1);
 	gpio_free(gpioLED2);
