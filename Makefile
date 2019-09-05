@@ -23,3 +23,6 @@ install: rtmouse.ko
 
 uninstall:
 	sudo rmmod rtmouse
+
+_dmesg:
+	dmesg -x --color -l emerg,alert,crit,err,info,debug
