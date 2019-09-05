@@ -14,11 +14,12 @@ clean:
 install: rtmouse.ko
 	sudo insmod rtmouse.ko
 	sleep 1
-	sudo chmod 666 /dev/rtled*
-	sudo chmod 666 /dev/rtswitch*
-	sudo chmod 666 /dev/rtlightsensor*
-	sudo chmod 666 /dev/rtmotor*
-	sudo chmod 666 /dev/rtcounter*
+	-sudo chmod 666 /dev/rtbuzzer*
+	-sudo chmod 666 /dev/rtcounter*
+	-sudo chmod 666 /dev/rtled*
+	-sudo chmod 666 /dev/rtlightsensor*
+	-sudo chmod 666 /dev/rtmotor*
+	-sudo chmod 666 /dev/rtswitch*
 
 uninstall:
 	sudo rmmod rtmouse
