@@ -41,16 +41,23 @@ MODULE_VERSION("0.1");
 
 #define NUM_DEV_LED 4
 #define NUM_DEV_SWITCH 3
+#define NUM_DEV_SWITCHES 1
 #define NUM_DEV_SENSOR 1
 #define NUM_DEV_MOTOREN 1
-#define NUM_DEV_CNT 1
 #define NUM_DEV_TOTAL                                                          \
-	(NUM_DEV_LED + NUM_DEV_SWITCH + NUM_DEV_SENSOR + NUM_DEV_MOTOREN)
+	(NUM_DEV_LED + NUM_DEV_SWITCH + NUM_DEV_SWITCHES + NUM_DEV_SENSOR + NUM_DEV_MOTOREN)
+
+#define NUM_DEV_CNTR 1
+#define NUM_DEV_CNTL 1
+
+/* I2C devices */
+#define NUM_DEV_CNT 1
 
 #define DRIVER_NAME "rtmouse"
 
 #define DEVNAME_LED "rtled"
 #define DEVNAME_SWITCH "rtswitch"
+#define DEVNAME_SWITCHES "rtswitches"
 #define DEVNAME_SENSOR "rtlightsensor"
 #define DEVNAME_MOTOREN "rtmotoren"
 #define DEVNAME_CNTR "rtcounter_r"
@@ -59,6 +66,7 @@ MODULE_VERSION("0.1");
 static struct cdev *cdev_array = NULL;
 static struct class *class_led = NULL;
 static struct class *class_switch = NULL;
+static struct class *class_switches = NULL;
 static struct class *class_sensor = NULL;
 static struct class *class_motoren = NULL;
 
@@ -72,6 +80,9 @@ static int _minor_led = DEV_MINOR;
 
 static int _major_switch = DEV_MAJOR;
 static int _minor_switch = DEV_MINOR;
+
+static int _major_switches = DEV_MAJOR;
+static int _minor_switches = DEV_MINOR;
 
 static int _major_sensor = DEV_MAJOR;
 static int _minor_sensor = DEV_MINOR;
@@ -365,6 +376,39 @@ static ssize_t sw_read(struct file *filep, char __user *buf, size_t count,
 }
 
 /*
+ * Read All Push Switches
+ * return 0 : device close
+ */
+static ssize_t sws_read(struct file *filep, char __user *buf, size_t count,
+		       loff_t *f_pos)
+{
+	int buflen = 0;
+	unsigned char rw_buf[MAX_BUFLEN];
+	unsigned int ret = 0;
+	int len;
+
+	if (*f_pos > 0)
+		return 0; /* End of file */
+
+	sprintf(rw_buf, "%d %d %d\n", !gpio_get_value(gpioSW0), !gpio_get_value(gpioSW1), !gpio_get_value(gpioSW2));
+
+	buflen = strlen(rw_buf);
+	count = buflen;
+	len = buflen;
+
+	if (copy_to_user((void *)buf, &rw_buf, count)) {
+		printk(KERN_INFO "err read buffer from ret  %d\n", ret);
+		printk(KERN_INFO "err read buffer from %s\n", rw_buf);
+		printk(KERN_INFO "err sample_char_read size(%ld)\n", count);
+		printk(KERN_INFO "sample_char_read size err(%d)\n", -EFAULT);
+		return 0;
+	}
+	*f_pos += count;
+
+	return count;
+}
+
+/*
  * Read Sensor information
  * return 0 : device close
  */
@@ -638,6 +682,12 @@ static struct file_operations sw_fops = {
     .read = sw_read,
     .release = dev_release,
 };
+/* /dev/rtswitches */
+static struct file_operations sws_fops = {
+    .open = dev_open,
+    .read = sws_read,
+    .release = dev_release,
+};
 /* /dev/rtlightsensor */
 static struct file_operations sensor_fops = {
     .open = dev_open,
@@ -650,7 +700,6 @@ static struct file_operations motoren_fops = {
     .write = motoren_write,
     .release = dev_release,
 };
-
 /* /dev/rtcounter_* */
 static struct file_operations rtcnt_fops = {
     .open = i2c_dev_open,
@@ -734,6 +783,42 @@ static int switch_register_dev(void)
 		}
 		cdev_index++;
 	}
+	return 0;
+}
+
+/* /dev/rtswitches0 */
+static int switches_register_dev(void)
+{
+	int retval;
+	dev_t dev;
+	dev_t devno;
+
+	retval = alloc_chrdev_region(&dev, DEV_MINOR, NUM_DEV_SWITCHES,
+				     DEVNAME_SWITCHES);
+
+	if (retval < 0) {
+		printk(KERN_ERR "%s: alloc_chrdev_region failed.\n", __func__);
+		return retval;
+	}
+	_major_switches = MAJOR(dev);
+
+	class_switches = class_create(THIS_MODULE, DEVNAME_SWITCHES);
+	if (IS_ERR(class_switches)) {
+		return PTR_ERR(class_switches);
+	}
+
+	devno = MKDEV(_major_switches, _minor_switches);
+	cdev_init(&(cdev_array[cdev_index]), &sws_fops);
+	cdev_array[cdev_index].owner = THIS_MODULE;
+	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
+		printk(KERN_ERR "cdev_add failed minor = %d\n", _minor_switches);
+	} else {
+		device_create(class_motoren, NULL, devno, NULL,
+			      DEVNAME_SWITCHES "%u", _minor_switches);
+	}
+
+	cdev_index++;
+
 	return 0;
 }
 
@@ -908,7 +993,7 @@ static unsigned int mcp3204_get_value(int channel)
 	r = (data->rx[1] & 0xf) << 8;
 	r |= data->rx[2];
 
-	printk(KERN_INFO "%s: get result on ch[%d] : %04d\n", __func__, channel,
+	printk(KERN_DEBUG "%s: get result on ch[%d] : %04d\n", __func__, channel,
 	       r);
 
 	return r;
@@ -1221,7 +1306,7 @@ static int __init init_mod(void)
 	int registered_devices = 0;
 	size_t size;
 
-	printk(KERN_INFO "loading %d devices...\n", NUM_DEV_TOTAL);
+	printk(KERN_INFO "%s: loading %d devices...\n", DRIVER_NAME, NUM_DEV_TOTAL);
 
 	mutex_init(&lock);
 
@@ -1353,6 +1438,12 @@ static int __init init_mod(void)
 		       DRIVER_NAME);
 		return retval;
 	}
+	retval = switches_register_dev();
+	if (retval != 0) {
+		printk(KERN_ALERT "%s: switches driver register failed.\n",
+		       DRIVER_NAME);
+		return retval;
+	}
 	retval = motoren_register_dev();
 	if (retval != 0) {
 		printk(KERN_ALERT "%s: motoren driver register failed.\n",
@@ -1403,6 +1494,11 @@ static void __exit cleanup_mod(void)
 	}
 	unregister_chrdev_region(devno_top, NUM_DEV_SWITCH);
 
+	/* /dev/rtswitches0 */
+	devno = MKDEV(_major_switches, _minor_switches);
+	device_destroy(class_switches, devno);
+	unregister_chrdev_region(devno, NUM_DEV_SWITCH);
+
 	/* /dev/rtmotoren0 */
 	devno = MKDEV(_major_motoren, _minor_motoren);
 	device_destroy(class_motoren, devno);
@@ -1415,6 +1511,7 @@ static void __exit cleanup_mod(void)
 
 	class_destroy(class_led);
 	class_destroy(class_switch);
+	class_destroy(class_switches);
 	class_destroy(class_sensor);
 	class_destroy(class_motoren);
 
