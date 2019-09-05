@@ -1,3 +1,8 @@
+.vscode/*
+*.code-workspace
+
+### https://raw.github.com/github/gitignore/499ae899e7b54e701e878759f73d9092302fd07a/C.gitignore
+
 # Prerequisites
 *.d
 
@@ -45,7 +50,24 @@
 # Kernel Module Compile Results
 *.mod*
 *.cmd
+.tmp_versions/
 modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+### https://raw.github.com/github/gitignore/499ae899e7b54e701e878759f73d9092302fd07a/Global/Linux.gitignore
+
+*~
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# KDE directory preferences
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
