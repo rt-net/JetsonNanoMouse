@@ -50,7 +50,13 @@ MODULE_VERSION("0.0.1");
 
 #define NUM_DEV_CNTR 1
 #define NUM_DEV_CNTL 1
+#define NUM_DEV_RTCNT_TOTAL (NUM_DEV_CNTR + NUM_DEV_CNTL)
+
 #define NUM_DEV_BUZZER 1
+#define NUM_DEV_MOTORRAWR 1
+#define NUM_DEV_MOTORRAWL 1
+#define NUM_DEV_PWM_TOTAL                                                      \
+	(NUM_DEV_BUZZER + NUM_DEV_MOTORRAWR + NUM_DEV_MOTORRAWL)
 
 /* I2C devices */
 #define NUM_DEV_CNT 1
@@ -65,16 +71,22 @@ MODULE_VERSION("0.0.1");
 #define DEVNAME_MOTOREN "rtmotoren"
 #define DEVNAME_CNTR "rtcounter_r"
 #define DEVNAME_CNTL "rtcounter_l"
+#define DEVNAME_MOTORRAWR "rtmotor_raw_r"
+#define DEVNAME_MOTORRAWL "rtmotor_raw_l"
 
 static struct cdev *cdev_array = NULL;
+static struct cdev *cdev_pwm_array = NULL;
 static struct class *class_led = NULL;
 static struct class *class_switch = NULL;
 static struct class *class_switches = NULL;
 static struct class *class_sensor = NULL;
 static struct class *class_motoren = NULL;
+static struct class *class_buzzer = NULL;
+static struct class *class_motorrawr = NULL;
+static struct class *class_motorrawl = NULL;
 
 static volatile int cdev_index = 0;
-static volatile int open_counter = 0;
+static volatile int cdev_pwm_index = 0;
 
 static struct mutex lock;
 
@@ -92,6 +104,15 @@ static int _minor_sensor = DEV_MINOR;
 
 static int _major_motoren = DEV_MAJOR;
 static int _minor_motoren = DEV_MINOR;
+
+static int _major_buzzer = DEV_MAJOR;
+static int _minor_buzzer = DEV_MINOR;
+
+static int _major_motorrawr = DEV_MAJOR;
+static int _minor_motorrawr = DEV_MINOR;
+
+static int _major_motorrawl = DEV_MAJOR;
+static int _minor_motorrawl = DEV_MINOR;
 
 /* SPI Parameters */
 static int spi_bus_num = 0;
@@ -228,6 +249,8 @@ static struct i2c_driver i2c_pwm_driver = {
     .probe = i2c_pwm_probe,
     .remove = i2c_pwm_remove,
 };
+
+static struct i2c_device_info *i2c_pwm_dev_info;
 
 /* -- Device Addition -- */
 MODULE_DEVICE_TABLE(spi, mcp3204_id);
@@ -759,7 +782,6 @@ static int i2c_pwm_set(struct i2c_device_info *dev_info, int channel, int on,
 
 	mutex_lock(&dev_info->lock);
 	// printk(KERN_INFO "set 0x%x msb = 0x%x\n", client->addr, msb);
-	/* set all 0 */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_LED0_ON_L + 4 * channel,
 					on & 0xFF);
 	if (ret < 0) {
@@ -807,7 +829,8 @@ static int i2c_pwm_set(struct i2c_device_info *dev_info, int channel, int on,
 static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
-	struct i2c_device_info *dev_info = filep->private_data;
+	// struct i2c_device_info *dev_info = filep->private_data;
+	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
 
 	int ret = -1;
 	int pwm_freq = 0;
@@ -851,6 +874,122 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 }
 
 /*
+ *  pwm_motorr_write - Set value to pwm driver
+ *  Write function of /dev/rtmotor_raw_r
+ */
+static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
+				size_t count, loff_t *pos)
+{
+	// struct i2c_device_info *dev_info = filep->private_data;
+	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
+
+	int ret = -1;
+	int pwm_freq = 0;
+
+	if (count < 0)
+		return 0;
+
+	ret = kstrtoint_from_user(buf, count, 10, &pwm_freq);
+	if (ret) {
+		printk(KERN_ERR "%s: error parsing string to int in %s()\n",
+		       DRIVER_NAME, __func__);
+		return ret;
+	}
+
+	if (pwm_freq < 0) {
+		gpio_set_value(gpioMOTORDIRR, 0);
+		pwm_freq *= -1;
+	} else {
+		gpio_set_value(gpioMOTORDIRR, 1);
+	}
+
+	// i2c_pwm_set_all(dev_info, 0, 0);
+	if (pwm_freq) {
+		ret = i2c_pwm_set_freq(dev_info, pwm_freq);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+		ret = i2c_pwm_set(dev_info, 0, 0, 1024);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+	} else {
+		ret = i2c_pwm_set(dev_info, 0, 0, 0);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+	}
+
+	printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
+	       pwm_freq);
+	return count;
+}
+
+/*
+ *  pwm_motorl_write - Set value to pwm driver
+ *  Write function of /dev/rtmotor_raw_l
+ */
+static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
+				size_t count, loff_t *pos)
+{
+	// struct i2c_device_info *dev_info = filep->private_data;
+	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
+
+	int ret = -1;
+	int pwm_freq = 0;
+
+	if (count < 0)
+		return 0;
+
+	ret = kstrtoint_from_user(buf, count, 10, &pwm_freq);
+	if (ret) {
+		printk(KERN_ERR "%s: error parsing string to int in %s()\n",
+		       DRIVER_NAME, __func__);
+		return ret;
+	}
+
+	if (pwm_freq < 0) {
+		gpio_set_value(gpioMOTORDIRL, 1);
+		pwm_freq *= -1;
+	} else {
+		gpio_set_value(gpioMOTORDIRL, 0);
+	}
+
+	// i2c_pwm_set_all(dev_info, 0, 0);
+	if (pwm_freq) {
+		ret = i2c_pwm_set_freq(dev_info, pwm_freq);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+		ret = i2c_pwm_set(dev_info, 1, 0, 2048);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+	} else {
+		ret = i2c_pwm_set(dev_info, 1, 0, 0);
+		if (ret) {
+			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+			       DRIVER_NAME, __func__);
+			return ret;
+		}
+	}
+
+	printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
+	       pwm_freq);
+	return count;
+}
+
+/*
  * Device File Operation
  */
 
@@ -862,20 +1001,20 @@ static int dev_open(struct inode *inode, struct file *filep)
 	// printk(KERN_INFO "open request major:%d minor: %d \n", major,
 	// *minor);
 	filep->private_data = (void *)minor;
-	open_counter++;
 	return 0;
 }
 
 static int dev_release(struct inode *inode, struct file *filep)
 {
 	kfree(filep->private_data);
-	open_counter--;
 	return 0;
 }
 
 static int i2c_dev_open(struct inode *inode, struct file *filep)
 {
 	struct i2c_device_info *dev_info;
+	// int major = MAJOR(inode->i_rdev);
+	// dev_info = container_of(major, struct i2c_device_info, device_major);
 	dev_info = container_of(inode->i_cdev, struct i2c_device_info, cdev);
 	if (dev_info == NULL || dev_info->client == NULL) {
 		printk(KERN_ERR "%s: i2c dev_open failed.\n", DRIVER_NAME);
@@ -886,6 +1025,8 @@ static int i2c_dev_open(struct inode *inode, struct file *filep)
 
 static int i2c_dev_release(struct inode *inode, struct file *filep)
 {
+	/* no need to kfree filep->private_data */
+	// kfree(filep->private_data);
 	return 0;
 }
 
@@ -928,10 +1069,22 @@ static struct file_operations rtcnt_fops = {
     .write = rtcnt_write,
 };
 /* /dev/rtbuzzer */
-static struct file_operations pwm_fops = {
-    .open = i2c_dev_open,
-    .release = i2c_dev_release,
+static struct file_operations buzzer_fops = {
+    .open = dev_open,
+    .release = dev_release,
     .write = pwm_buzzer_write,
+};
+/* /dev/rtmotor_raw_r */
+static struct file_operations motorrawr_fops = {
+    .open = dev_open,
+    .release = dev_release,
+    .write = pwm_motorr_write,
+};
+/* /dev/rtmotor_raw_l */
+static struct file_operations motorrawl_fops = {
+    .open = dev_open,
+    .release = dev_release,
+    .write = pwm_motorl_write,
 };
 
 /* --- Device Driver Registration and Device File Creation --- */
@@ -1298,10 +1451,10 @@ static void mcp3204_exit(void)
 }
 
 /*
- * rtcntr_i2c_create_cdev - I2C pulse counter
+ * rtcntr_i2c_register_dev - I2C pulse counter
  * called from i2c_rtcnt_probe()
  */
-static int rtcntr_i2c_create_cdev(struct i2c_device_info *dev_info)
+static int rtcntr_i2c_register_dev(struct i2c_device_info *dev_info)
 {
 	int minor;
 	int alloc_ret = 0;
@@ -1320,6 +1473,8 @@ static int rtcntr_i2c_create_cdev(struct i2c_device_info *dev_info)
 	 * からメジャー番号を取得して保持しておく */
 	dev_info->device_major = MAJOR(dev);
 	dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	printk(KERN_DEBUG "rtcntr_i2c major:%d, minor:%d\n",
+	       dev_info->device_major, DEV_MINOR);
 
 	/* cdev構造体の初期化とシステムコールハンドラテーブルの登録 */
 	cdev_init(&dev_info->cdev, &rtcnt_fops);
@@ -1352,10 +1507,10 @@ static int rtcntr_i2c_create_cdev(struct i2c_device_info *dev_info)
 }
 
 /*
- * rtcntl_i2c_create_cdev - I2C pulse counter
+ * rtcntl_i2c_register_dev - I2C pulse counter
  * called from i2c_rtcnt_probe()
  */
-static int rtcntl_i2c_create_cdev(struct i2c_device_info *dev_info)
+static int rtcntl_i2c_register_dev(struct i2c_device_info *dev_info)
 {
 	int minor;
 	int alloc_ret = 0;
@@ -1374,6 +1529,8 @@ static int rtcntl_i2c_create_cdev(struct i2c_device_info *dev_info)
 	 * からメジャー番号を取得して保持しておく */
 	dev_info->device_major = MAJOR(dev);
 	dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	printk(KERN_DEBUG "rtcntl_i2c major:%d, minor:%d\n",
+	       dev_info->device_major, DEV_MINOR);
 
 	/* cdev構造体の初期化とシステムコールハンドラテーブルの登録 */
 	cdev_init(&dev_info->cdev, &rtcnt_fops);
@@ -1441,10 +1598,10 @@ static int i2c_rtcnt_probe(struct i2c_client *client,
 
 	/* create character device */
 	if ((int)(id->driver_data) == 0) {
-		if (rtcntl_i2c_create_cdev(dev_info))
+		if (rtcntl_i2c_register_dev(dev_info))
 			return -ENOMEM;
 	} else if ((int)(id->driver_data) == 1) {
-		if (rtcntr_i2c_create_cdev(dev_info))
+		if (rtcntr_i2c_register_dev(dev_info))
 			return -ENOMEM;
 	}
 
@@ -1507,25 +1664,27 @@ static void i2c_counter_exit(void)
 }
 
 /*
- * rtcnt_i2c_delete_cdev - I2C pulse counter
+ * rtcnt_i2c_unregister_dev - I2C pulse counter
  * called from i2c_rtcnt_remove()
  */
-static void rtcnt_i2c_delete_cdev(struct i2c_device_info *dev_info)
+static void rtcnt_i2c_unregister_dev(struct i2c_device_info *dev_info,
+				     unsigned int devices)
 {
 	dev_t dev = MKDEV(dev_info->device_major, DEV_MINOR);
 	int minor;
 	printk(KERN_DEBUG "%s: deleting cdev for rtcnt", __func__);
-	/* remove /sys/class/rtcounter_[rl]/rtcounter_[rl]* */
-	for (minor = DEV_MINOR; minor < DEV_MINOR + NUM_DEV_CNT; minor++) {
+	/* remove sysfs, /sys/class/rtcounter_[rl]/rtcounter_[rl]* */
+	for (minor = DEV_MINOR; minor < DEV_MINOR + devices; minor++) {
 		device_destroy(dev_info->device_class,
 			       MKDEV(dev_info->device_major, minor));
 	}
-	/* remove rtbuzzer class registration and delete /sys/class/rtbuzzer/ */
+	/* remove rtcounter_[rl] class registration and delete
+	 * /sys/class/rtcounter_[rl]/ */
 	class_destroy(dev_info->device_class);
 	/* remove cdev from the Linux kernel */
 	cdev_del(&dev_info->cdev);
 	/* remove major number registration */
-	unregister_chrdev_region(dev, NUM_DEV_CNT);
+	unregister_chrdev_region(dev, devices);
 }
 
 /*
@@ -1538,17 +1697,20 @@ static int i2c_rtcnt_remove(struct i2c_client *client)
 	// printk(KERN_DEBUG "%s: removing i2c device 0x%x\n", __func__,
 	// client->addr);
 	dev_info = i2c_get_clientdata(client);
-	rtcnt_i2c_delete_cdev(dev_info);
+	if (client->addr == CNTL_I2C_ADDR)
+		rtcnt_i2c_unregister_dev(dev_info, NUM_DEV_CNTL);
+	if (client->addr == CNTR_I2C_ADDR)
+		rtcnt_i2c_unregister_dev(dev_info, NUM_DEV_CNTR);
 	printk(KERN_INFO "%s: i2c device 0x%x removed\n", DRIVER_NAME,
 	       client->addr);
 	return 0;
 }
 
 /*
- * buzzer_create_cdev - I2C pulse counter
+ * buzzer_register_dev - register /dev/rtbuzzer0
  * called from i2c_pwm_probe()
  */
-static int buzzer_create_cdev(struct i2c_device_info *dev_info)
+static int buzzer_register_dev(struct i2c_device_info *dev_info)
 {
 	int minor;
 	int alloc_ret = 0;
@@ -1567,36 +1729,212 @@ static int buzzer_create_cdev(struct i2c_device_info *dev_info)
 
 	/* 取得したdev( = メジャー番号 + マイナー番号)
 	 * からメジャー番号を取得して保持しておく */
-	dev_info->device_major = MAJOR(dev);
-	dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	_major_buzzer = MAJOR(dev);
+	dev = MKDEV(_major_buzzer, _minor_buzzer);
+	// dev_info->device_major = MAJOR(dev);
+	// dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	// printk(KERN_DEBUG "rtbuzzer_i2c major:%d, minor:%d\n",
+	// dev_info->device_major, DEV_MINOR);
 
 	/* cdev構造体の初期化とシステムコールハンドラテーブルの登録 */
-	cdev_init(&dev_info->cdev, &pwm_fops);
-	dev_info->cdev.owner = THIS_MODULE;
+	cdev_init(&(cdev_pwm_array[cdev_pwm_index]), &buzzer_fops);
+	cdev_pwm_array[cdev_pwm_index].owner = THIS_MODULE;
+	// cdev_init(&dev_info->cdev, &buzzer_fops);
+	// dev_info->cdev.owner = THIS_MODULE;
 
 	/* このデバイスドライバ(cdev)をカーネルに登録する */
-	cdev_err = cdev_add(&dev_info->cdev, dev, NUM_DEV_BUZZER);
+	cdev_err =
+	    cdev_add(&(cdev_pwm_array[cdev_pwm_index]), dev, NUM_DEV_BUZZER);
+	// cdev_err = cdev_add(&dev_info->cdev, dev, NUM_DEV_BUZZER);
 	if (cdev_err != 0) {
-		printk(KERN_ERR "cdev_add = %d\n", alloc_ret);
+		printk(KERN_ERR "cdev_add = %d\n", cdev_err);
 		unregister_chrdev_region(dev, NUM_DEV_BUZZER);
 		return -1;
 	}
 
 	/* このデバイスのクラス登録をする(/sys/class/mydevice/ を作る) */
-	dev_info->device_class = class_create(THIS_MODULE, DEVNAME_BUZZER);
-	if (IS_ERR(dev_info->device_class)) {
+	class_buzzer = class_create(THIS_MODULE, DEVNAME_BUZZER);
+	if (IS_ERR(class_buzzer)) {
 		printk(KERN_ERR "class_create\n");
-		cdev_del(&dev_info->cdev);
+		cdev_del(&(cdev_pwm_array[cdev_pwm_index]));
 		unregister_chrdev_region(dev, NUM_DEV_BUZZER);
 		return -1;
 	}
+	// dev_info->device_class = class_create(THIS_MODULE, DEVNAME_BUZZER);
+	// if (IS_ERR(dev_info->device_class)) {
+	// 	printk(KERN_ERR "class_create\n");
+	// 	cdev_del(&dev_info->cdev);
+	// 	unregister_chrdev_region(dev, NUM_DEV_BUZZER);
+	// 	return -1;
+	// }
 
 	/* /sys/class/mydevice/mydevice* を作る */
-	for (minor = DEV_MINOR; minor < DEV_MINOR + NUM_DEV_BUZZER; minor++) {
-		device_create(dev_info->device_class, NULL,
-			      MKDEV(dev_info->device_major, minor), NULL,
-			      DEVNAME_BUZZER "%d", minor);
+	for (minor = _minor_buzzer; minor < _minor_buzzer + NUM_DEV_BUZZER;
+	     minor++) {
+		device_create(class_buzzer, NULL, MKDEV(_major_buzzer, minor),
+			      NULL, DEVNAME_BUZZER "%d", minor);
+		// device_create(dev_info->device_class, NULL,
+		// 	      MKDEV(dev_info->device_major, minor), NULL,
+		// 	      DEVNAME_BUZZER "%d", minor);
 	}
+
+	cdev_pwm_index++;
+
+	return 0;
+}
+
+/*
+ * motorrawr_register_dev - register /dev/rtmotor_raw_r0
+ * called from i2c_pwm_probe()
+ */
+static int motorrawr_register_dev(struct i2c_device_info *dev_info)
+{
+	int minor;
+	int alloc_ret = 0;
+	int cdev_err = 0;
+	dev_t dev;
+
+	printk(KERN_DEBUG "%s: adding cdev for pwm driver\n", __func__);
+
+	/* 空いているメジャー番号を確保する */
+	alloc_ret = alloc_chrdev_region(&dev, DEV_MINOR, NUM_DEV_MOTORRAWR,
+					DEVNAME_MOTORRAWR);
+	if (alloc_ret != 0) {
+		printk(KERN_ERR "alloc_chrdev_region = %d\n", alloc_ret);
+		return -1;
+	}
+
+	/* 取得したdev( = メジャー番号 + マイナー番号)
+	 * からメジャー番号を取得して保持しておく */
+	_major_motorrawr = MAJOR(dev);
+	dev = MKDEV(_major_motorrawr, _minor_motorrawr);
+	// dev_info->device_major = MAJOR(dev);
+	// dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	// printk(KERN_DEBUG "rtmotorrawr_i2c major:%d, minor:%d\n",
+	// dev_info->device_major, DEV_MINOR);
+
+	/* cdev構造体の初期化とシステムコールハンドラテーブルの登録 */
+	cdev_init(&(cdev_pwm_array[cdev_pwm_index]), &motorrawr_fops);
+	cdev_pwm_array[cdev_pwm_index].owner = THIS_MODULE;
+	// cdev_init(&dev_info->cdev, &motorrawr_fops);
+	// dev_info->cdev.owner = THIS_MODULE;
+
+	/* このデバイスドライバ(cdev)をカーネルに登録する */
+	cdev_err =
+	    cdev_add(&(cdev_pwm_array[cdev_pwm_index]), dev, NUM_DEV_MOTORRAWR);
+	// cdev_err = cdev_add(&dev_info->cdev, dev, NUM_DEV_MOTORRAWR);
+	if (cdev_err != 0) {
+		printk(KERN_ERR "cdev_add = %d\n", cdev_err);
+		unregister_chrdev_region(dev, NUM_DEV_MOTORRAWR);
+		return -1;
+	}
+
+	/* このデバイスのクラス登録をする(/sys/class/mydevice/ を作る) */
+	class_motorrawr = class_create(THIS_MODULE, DEVNAME_MOTORRAWR);
+	if (IS_ERR(class_motorrawr)) {
+		printk(KERN_ERR "class_create\n");
+		cdev_del(&(cdev_pwm_array[cdev_pwm_index]));
+		unregister_chrdev_region(dev, NUM_DEV_MOTORRAWR);
+		return -1;
+	}
+	// dev_info->device_class = class_create(THIS_MODULE,
+	// DEVNAME_MOTORRAWR); if (IS_ERR(dev_info->device_class)) {
+	// 	printk(KERN_ERR "class_create\n");
+	// 	cdev_del(&dev_info->cdev);
+	// 	unregister_chrdev_region(dev, NUM_DEV_MOTORRAWR);
+	// 	return -1;
+	// }
+
+	/* /sys/class/mydevice/mydevice* を作る */
+	for (minor = _minor_motorrawr;
+	     minor < _minor_motorrawr + NUM_DEV_MOTORRAWR; minor++) {
+		device_create(class_motorrawr, NULL,
+			      MKDEV(_major_motorrawr, minor), NULL,
+			      DEVNAME_MOTORRAWR "%d", minor);
+		// device_create(dev_info->device_class, NULL,
+		// 	      MKDEV(dev_info->device_major, minor), NULL,
+		// 	      DEVNAME_MOTORRAWR "%d", minor);
+	}
+
+	cdev_pwm_index++;
+
+	return 0;
+}
+
+/*
+ * motorrawl_register_dev - register /dev/rtmotor_raw_l0
+ * called from i2c_pwm_probe()
+ */
+static int motorrawl_register_dev(struct i2c_device_info *dev_info)
+{
+	int minor;
+	int alloc_ret = 0;
+	int cdev_err = 0;
+	dev_t dev;
+
+	printk(KERN_DEBUG "%s: adding cdev for pwm driver\n", __func__);
+
+	/* 空いているメジャー番号を確保する */
+	alloc_ret = alloc_chrdev_region(&dev, DEV_MINOR, NUM_DEV_MOTORRAWL,
+					DEVNAME_MOTORRAWL);
+	if (alloc_ret != 0) {
+		printk(KERN_ERR "alloc_chrdev_region = %d\n", alloc_ret);
+		return -1;
+	}
+
+	/* 取得したdev( = メジャー番号 + マイナー番号)
+	 * からメジャー番号を取得して保持しておく */
+	_major_motorrawl = MAJOR(dev);
+	dev = MKDEV(_major_motorrawl, _minor_motorrawl);
+	// dev_info->device_major = MAJOR(dev);
+	// dev = MKDEV(dev_info->device_major, DEV_MINOR);
+	// printk(KERN_DEBUG "rtmotorrawl_i2c major:%d, minor:%d\n",
+	// dev_info->device_major, DEV_MINOR);
+
+	/* cdev構造体の初期化とシステムコールハンドラテーブルの登録 */
+	cdev_init(&(cdev_pwm_array[cdev_pwm_index]), &motorrawl_fops);
+	cdev_pwm_array[cdev_pwm_index].owner = THIS_MODULE;
+	// cdev_init(&dev_info->cdev, &motorrawl_fops);
+	// dev_info->cdev.owner = THIS_MODULE;
+
+	/* このデバイスドライバ(cdev)をカーネルに登録する */
+	cdev_err =
+	    cdev_add(&(cdev_pwm_array[cdev_pwm_index]), dev, NUM_DEV_MOTORRAWL);
+	// cdev_err = cdev_add(&dev_info->cdev, dev, NUM_DEV_MOTORRAWL);
+	if (cdev_err != 0) {
+		printk(KERN_ERR "cdev_add = %d\n", cdev_err);
+		unregister_chrdev_region(dev, NUM_DEV_MOTORRAWL);
+		return -1;
+	}
+
+	/* このデバイスのクラス登録をする(/sys/class/mydevice/ を作る) */
+	class_motorrawl = class_create(THIS_MODULE, DEVNAME_MOTORRAWL);
+	if (IS_ERR(class_motorrawl)) {
+		printk(KERN_ERR "class_create\n");
+		cdev_del(&(cdev_pwm_array[cdev_pwm_index]));
+		unregister_chrdev_region(dev, NUM_DEV_MOTORRAWL);
+		return -1;
+	}
+	// dev_info->device_class = class_create(THIS_MODULE,
+	// DEVNAME_MOTORRAWL); if (IS_ERR(dev_info->device_class)) {
+	// 	printk(KERN_ERR "class_create\n");
+	// 	cdev_del(&dev_info->cdev);
+	// 	unregister_chrdev_region(dev, NUM_DEV_MOTORRAWL);
+	// 	return -1;
+	// }
+
+	/* /sys/class/mydevice/mydevice* を作る */
+	for (minor = _minor_motorrawl;
+	     minor < _minor_motorrawl + NUM_DEV_MOTORRAWL; minor++) {
+		device_create(class_motorrawl, NULL,
+			      MKDEV(_major_motorrawl, minor), NULL,
+			      DEVNAME_MOTORRAWL "%d", minor);
+		// device_create(dev_info->device_class, NULL,
+		// 	      MKDEV(dev_info->device_major, minor), NULL,
+		// 	      DEVNAME_MOTORRAWL "%d", minor);
+	}
+
+	cdev_pwm_index++;
 
 	return 0;
 }
@@ -1608,9 +1946,10 @@ static int buzzer_create_cdev(struct i2c_device_info *dev_info)
 static int i2c_pwm_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id)
 {
-	struct i2c_device_info *dev_info;
+	// struct i2c_device_info *dev_info;
 	int mode1 = 0;
 	int ret = -1;
+	size_t size;
 	// int msb = 0, lsb = 0;
 	printk(KERN_DEBUG "%s: probing i2c device", __func__);
 
@@ -1618,23 +1957,23 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			 "id.driver_data=%d, addr=0x%x\n",
 	       DRIVER_NAME, id->name, (int)(id->driver_data), client->addr);
 
-	dev_info = (struct i2c_device_info *)devm_kzalloc(
+	i2c_pwm_dev_info = (struct i2c_device_info *)devm_kzalloc(
 	    &client->dev, sizeof(struct i2c_device_info), GFP_KERNEL);
-	dev_info->client = client;
-	i2c_set_clientdata(client, dev_info);
-	mutex_init(&dev_info->lock);
+	i2c_pwm_dev_info->client = client;
+	i2c_set_clientdata(client, i2c_pwm_dev_info);
+	mutex_init(&i2c_pwm_dev_info->lock);
 
 	/* init pwm driver */
-	ret = i2c_pwm_set_all(dev_info, 0, 0);
+	ret = i2c_pwm_set_all(i2c_pwm_dev_info, 0, 0);
 	if (ret) {
 		printk(KERN_INFO
 		       "%s: pwm driver not found, or wrong i2c device probed",
 		       DRIVER_NAME);
-		mutex_unlock(&dev_info->lock);
+		mutex_unlock(&i2c_pwm_dev_info->lock);
 		return -ENODEV;
 	}
 
-	mutex_lock(&dev_info->lock);
+	mutex_lock(&i2c_pwm_dev_info->lock);
 
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE2, PCA9685_OUTDRV);
 	if (ret) {
@@ -1643,7 +1982,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 		       DRIVER_NAME);
 		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
 		//        client->addr, msb, lsb);
-		mutex_unlock(&dev_info->lock);
+		mutex_unlock(&i2c_pwm_dev_info->lock);
 		return -ENODEV;
 	}
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1, PCA9685_ALLCALL);
@@ -1653,7 +1992,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 		       DRIVER_NAME);
 		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
 		//        client->addr, msb, lsb);
-		mutex_unlock(&dev_info->lock);
+		mutex_unlock(&i2c_pwm_dev_info->lock);
 		return -ENODEV;
 	}
 	mdelay(5);
@@ -1675,16 +2014,21 @@ static int i2c_pwm_probe(struct i2c_client *client,
 		       DRIVER_NAME);
 		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
 		//        client->addr, msb, lsb);
-		mutex_unlock(&dev_info->lock);
+		mutex_unlock(&i2c_pwm_dev_info->lock);
 		return -ENODEV;
 	}
 	mdelay(5);
-	mutex_unlock(&dev_info->lock);
-
+	mutex_unlock(&i2c_pwm_dev_info->lock);
 	/* create character device */
+	size = sizeof(struct cdev) * NUM_DEV_PWM_TOTAL;
+	cdev_pwm_array = (struct cdev *)kmalloc(size, GFP_KERNEL);
 	if ((int)(id->driver_data) == 0) {
 		printk(KERN_DEBUG "%s: going to add cdev", __func__);
-		if (buzzer_create_cdev(dev_info))
+		if (buzzer_register_dev(i2c_pwm_dev_info))
+			return -ENOMEM;
+		if (motorrawr_register_dev(i2c_pwm_dev_info))
+			return -ENOMEM;
+		if (motorrawl_register_dev(i2c_pwm_dev_info))
 			return -ENOMEM;
 	}
 
@@ -1736,40 +2080,73 @@ static void i2c_pwm_exit(void)
 }
 
 /*
- * pwm_i2c_delete_cdev - I2C PWM driver
- * called from i2c_pwm_remove()
- */
-static void pwm_i2c_delete_cdev(struct i2c_device_info *dev_info)
-{
-	printk(KERN_DEBUG "%s: removing cdev", __func__);
-	dev_t dev = MKDEV(dev_info->device_major, DEV_MINOR);
-	int minor;
-	/* remove /sys/class/rtbuzzer/rtbuzzer* */
-	for (minor = DEV_MINOR; minor < DEV_MINOR + NUM_DEV_BUZZER; minor++) {
-		device_destroy(dev_info->device_class,
-			       MKDEV(dev_info->device_major, minor));
-	}
-	/* remove rtbuzzer class registration and delete /sys/class/rtbuzzer/ */
-	class_destroy(dev_info->device_class);
-	/* remove cdev from the Linux kernel */
-	cdev_del(&dev_info->cdev);
-	/* remove major number registration */
-	unregister_chrdev_region(dev, NUM_DEV_BUZZER);
-}
-
-/*
  * i2c_pwm_remove - I2C PWM driver
  * called when I2C PWM driver removed
  */
 static int i2c_pwm_remove(struct i2c_client *client)
 {
 	struct i2c_device_info *dev_info;
+	int minor;
+	dev_t dev;
+	int i;
 	// printk(KERN_DEBUG "%s: removing i2c device 0x%x\n", __func__,
 	// client->addr);
 	dev_info = i2c_get_clientdata(client);
-	pwm_i2c_delete_cdev(dev_info);
+
+	/* remove cdev from the Linux kernel */
+	// printk(KERN_DEBUG "%s: deleting cdev for pwm driver", __func__);
+	for (i = 0; i < NUM_DEV_PWM_TOTAL; i++) {
+		cdev_del(&(cdev_pwm_array[i]));
+	}
+
+	/* /dev/rtbuzzer0 */
+	dev = MKDEV(_major_buzzer, _minor_buzzer);
+	printk(KERN_DEBUG "%s: deleting cdev for rtbuzzer", __func__);
+	/* remove sysfs, /sys/class/<device name>/<device name>* */
+	for (minor = _minor_buzzer; minor < _minor_buzzer + NUM_DEV_BUZZER;
+	     minor++) {
+		device_destroy(class_buzzer, MKDEV(_major_buzzer, minor));
+	}
+	/* remove rtbuzzer class registration and delete /sys/class/rtbuzzer/ */
+	class_destroy(class_buzzer);
+	/* remove major number registration */
+	unregister_chrdev_region(dev, NUM_DEV_BUZZER);
+
+	/* /dev/rtmotor_raw_r0 */
+	dev = MKDEV(_major_motorrawr, _minor_motorrawr);
+	printk(KERN_DEBUG "%s: deleting cdev for rtmotor_raw_r", __func__);
+	/* remove sysfs, /sys/class/<device name>/<device name>* */
+	for (minor = _minor_motorrawr;
+	     minor < _minor_motorrawr + NUM_DEV_MOTORRAWR; minor++) {
+		device_destroy(class_motorrawr, MKDEV(_major_motorrawr, minor));
+	}
+	/* remove rtmotor_raw_r class registration and delete
+	 * /sys/class/rtmotor_raw_r/ */
+	class_destroy(class_motorrawr);
+	/* remove major number registration */
+	unregister_chrdev_region(dev, NUM_DEV_MOTORRAWR);
+
+	/* /dev/rtmotor_raw_l0 */
+	dev = MKDEV(_major_motorrawl, _minor_motorrawl);
+	printk(KERN_DEBUG "%s: deleting cdev for rtmotor_raw_l", __func__);
+	/* remove sysfs, /sys/class/<device name>/<device name>* */
+	for (minor = _minor_motorrawl;
+	     minor < _minor_motorrawl + NUM_DEV_MOTORRAWL; minor++) {
+		device_destroy(class_motorrawl, MKDEV(_major_motorrawl, minor));
+	}
+	/* remove rtmotor_raw_l class registration and delete
+	 * /sys/class/rtmotor_raw_l/ */
+	class_destroy(class_motorrawl);
+	/* remove major number registration */
+	unregister_chrdev_region(dev, NUM_DEV_MOTORRAWL);
+	// rtcnt_i2c_unregister_dev(dev_info, NUM_DEV_BUZZER);
+	// rtcnt_i2c_unregister_dev(dev_info, NUM_DEV_MOTORRAWR);
+	// rtcnt_i2c_unregister_dev(dev_info, NUM_DEV_MOTORRAWL);
+
 	printk(KERN_INFO "%s: i2c device 0x%x removed\n", DRIVER_NAME,
 	       client->addr);
+
+	kfree(cdev_pwm_array);
 	return 0;
 }
 
@@ -1887,6 +2264,19 @@ static int __init init_mod(void)
 	retval = gpio_direction_output(gpioSENLF, 0);
 	retval = gpio_export(gpioSENLF, 0);
 
+	if (!gpio_is_valid(gpioMOTORDIRR)) {
+		printk(KERN_INFO "GPIO: invalid MOTORDIRR GPIO\n");
+		return -ENODEV;
+	}
+	if (!gpio_is_valid(gpioMOTORDIRL)) {
+		printk(KERN_INFO "GPIO: invalid MOTORDIRL GPIO\n");
+		return -ENODEV;
+	}
+	retval = gpio_direction_output(gpioMOTORDIRR, 0);
+	retval = gpio_export(gpioMOTORDIRR, 0);
+	retval = gpio_direction_output(gpioMOTORDIRL, 0);
+	retval = gpio_export(gpioMOTORDIRL, 0);
+
 	size = sizeof(struct cdev) * NUM_DEV_TOTAL;
 	cdev_array = (struct cdev *)kmalloc(size, GFP_KERNEL);
 
@@ -1930,7 +2320,7 @@ static int __init init_mod(void)
 
 	retval = i2c_counter_init();
 	if (retval == 0) {
-		registered_devices += 2;
+		registered_devices += NUM_DEV_RTCNT_TOTAL;
 	} else {
 		printk(KERN_ALERT
 		       "%s: i2c counter device driver register failed.\n",
@@ -1940,7 +2330,7 @@ static int __init init_mod(void)
 
 	retval = i2c_pwm_init();
 	if (retval == 0) {
-		registered_devices += 1;
+		registered_devices += NUM_DEV_PWM_TOTAL;
 	} else {
 		printk(KERN_ALERT
 		       "%s: i2c pwm device driver register failed.\n",
@@ -2034,6 +2424,8 @@ static void __exit cleanup_mod(void)
 	gpio_unexport(gpioSENRF);
 	gpio_unexport(gpioSENLF);
 	gpio_unexport(gpioMOTOREN);
+	gpio_unexport(gpioMOTORDIRR);
+	gpio_unexport(gpioMOTORDIRL);
 	/* reverse gpio_export() */
 	gpio_free(gpioLED0);
 	gpio_free(gpioLED1);
@@ -2047,6 +2439,8 @@ static void __exit cleanup_mod(void)
 	gpio_free(gpioSENRF);
 	gpio_free(gpioSENLF);
 	gpio_free(gpioMOTOREN);
+	gpio_free(gpioMOTORDIRR);
+	gpio_free(gpioMOTORDIRL);
 	printk("module being removed at %lu\n", jiffies);
 }
 
