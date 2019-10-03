@@ -1099,7 +1099,7 @@ static int led_register_dev(void)
 	retval = alloc_chrdev_region(&dev, DEV_MINOR, NUM_DEV_LED, DEVNAME_LED);
 
 	if (retval < 0) {
-		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		printk(KERN_ERR "%s: alloc_chrdev_region failed.\n", __func__);
 		return retval;
 	}
 	_major_led = MAJOR(dev);
@@ -1115,8 +1115,8 @@ static int led_register_dev(void)
 		cdev_init(&(cdev_array[cdev_index]), &led_fops);
 		cdev_array[cdev_index].owner = THIS_MODULE;
 		if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
-			printk(KERN_ERR "cdev_add failed minor = %d\n",
-			       _minor_led + i);
+			printk(KERN_ERR "%s: cdev_add failed minor = %d\n",
+			       __func__, _minor_led + i);
 		} else {
 			device_create(class_led, NULL, devno, NULL,
 				      DEVNAME_LED "%u", _minor_led + i);
@@ -1138,7 +1138,7 @@ static int switch_register_dev(void)
 				     DEVNAME_SWITCH);
 
 	if (retval < 0) {
-		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		printk(KERN_ERR "%s: alloc_chrdev_region failed.\n", __func__);
 		return retval;
 	}
 	_major_switch = MAJOR(dev);
@@ -1154,8 +1154,8 @@ static int switch_register_dev(void)
 		cdev_array[cdev_index].owner = THIS_MODULE;
 
 		if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
-			printk(KERN_ERR "cdev_add failed minor = %d\n",
-			       _minor_switch + i);
+			printk(KERN_ERR "%s: cdev_add failed minor = %d\n",
+			       __func__, _minor_switch + i);
 		} else {
 			device_create(class_switch, NULL, devno, NULL,
 				      DEVNAME_SWITCH "%u", _minor_switch + i);
@@ -1190,7 +1190,7 @@ static int switches_register_dev(void)
 	cdev_init(&(cdev_array[cdev_index]), &sws_fops);
 	cdev_array[cdev_index].owner = THIS_MODULE;
 	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
-		printk(KERN_ERR "cdev_add failed minor = %d\n",
+		printk(KERN_ERR "%s: cdev_add failed minor = %d\n", __func__,
 		       _minor_switches);
 	} else {
 		device_create(class_switches, NULL, devno, NULL,
@@ -1213,7 +1213,7 @@ static int motoren_register_dev(void)
 				     DEVNAME_MOTOREN);
 
 	if (retval < 0) {
-		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		printk(KERN_ERR "%s: alloc_chrdev_region failed.\n", __func__);
 		return retval;
 	}
 	_major_motoren = MAJOR(dev);
@@ -1227,7 +1227,8 @@ static int motoren_register_dev(void)
 	cdev_init(&(cdev_array[cdev_index]), &motoren_fops);
 	cdev_array[cdev_index].owner = THIS_MODULE;
 	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
-		printk(KERN_ERR "cdev_add failed minor = %d\n", _minor_motoren);
+		printk(KERN_ERR "%s: cdev_add failed minor = %d\n", __func__,
+		       _minor_motoren);
 	} else {
 		device_create(class_motoren, NULL, devno, NULL,
 			      DEVNAME_MOTOREN "%u", _minor_motoren);
@@ -1249,7 +1250,7 @@ static int sensor_register_dev(void)
 				     DEVNAME_SENSOR);
 
 	if (retval < 0) {
-		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		printk(KERN_ERR "%s: alloc_chrdev_region failed.\n", __func__);
 		return retval;
 	}
 	_major_sensor = MAJOR(dev);
@@ -1263,7 +1264,8 @@ static int sensor_register_dev(void)
 	cdev_init(&(cdev_array[cdev_index]), &sensor_fops);
 	cdev_array[cdev_index].owner = THIS_MODULE;
 	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
-		printk(KERN_ERR "cdev_add failed minor = %d\n", _minor_sensor);
+		printk(KERN_ERR "%s: cdev_add failed minor = %d\n", __func__,
+		       _minor_sensor);
 	} else {
 		device_create(class_sensor, NULL, devno, NULL,
 			      DEVNAME_SENSOR "%u", _minor_sensor);
