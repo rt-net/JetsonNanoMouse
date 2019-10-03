@@ -1193,7 +1193,7 @@ static int switches_register_dev(void)
 		printk(KERN_ERR "cdev_add failed minor = %d\n",
 		       _minor_switches);
 	} else {
-		device_create(class_motoren, NULL, devno, NULL,
+		device_create(class_switches, NULL, devno, NULL,
 			      DEVNAME_SWITCHES "%u", _minor_switches);
 	}
 
