@@ -13,7 +13,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.0.1");
+MODULE_VERSION("0.0.2");
 
 /* --- GPIO Pins --- */
 #define gpioLED0 13       // PIN22
@@ -134,7 +134,9 @@ static int spi_chip_select = 0;
 #define CNTR_I2C_ADDR 0x11
 #define CNT_MSB_REG 0x10
 #define CNT_LSB_REG 0x11
-#define PCA9685_I2C_ADDR 0x70
+#define PCA9685_I2C_ADDR
+#define PCA9685_L_I2C_ADDR 0x40
+#define PCA9685_R_I2C_ADDR 0x41
 #define PCA9685_MODE1 0x00
 #define PCA9685_MODE2 0x01
 #define PCA9685_PRESCALE 0xFE
@@ -213,7 +215,8 @@ static struct spi_driver mcp3204_driver = {
 /* I2C client */
 static struct i2c_client *i2c_client_r = NULL;
 static struct i2c_client *i2c_client_l = NULL;
-static struct i2c_client *i2c_client_pwm = NULL;
+static struct i2c_client *i2c_client_pwm0 = NULL;
+static struct i2c_client *i2c_client_pwm1 = NULL;
 
 /* I2C Device ID */
 static struct i2c_device_id i2c_rtcnt_id[] = {
@@ -223,7 +226,8 @@ static struct i2c_device_id i2c_rtcnt_id[] = {
 };
 
 static struct i2c_device_id i2c_pwm_id[] = {
-    {"pwmdriver", 0},
+    {"pwmdriver0", 0},
+    {"pwmdriver1", 1},
     {},
 };
 
@@ -250,7 +254,8 @@ static struct i2c_driver i2c_pwm_driver = {
     .remove = i2c_pwm_remove,
 };
 
-static struct i2c_device_info *i2c_pwm_dev_info;
+static struct i2c_device_info *i2c_pwm0_dev_info;
+static struct i2c_device_info *i2c_pwm1_dev_info;
 
 /* -- Device Addition -- */
 MODULE_DEVICE_TABLE(spi, mcp3204_id);
@@ -830,7 +835,7 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
 	// struct i2c_device_info *dev_info = filep->private_data;
-	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
+	struct i2c_device_info *dev_info = i2c_pwm1_dev_info;
 
 	int ret = -1;
 	int pwm_freq = 0;
@@ -853,14 +858,14 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 			       DRIVER_NAME, __func__);
 			return ret;
 		}
-		ret = i2c_pwm_set(dev_info, 2, 0, 3072);
+		ret = i2c_pwm_set(dev_info, 1, 0, 3072);
 		if (ret) {
 			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
 			       DRIVER_NAME, __func__);
 			return ret;
 		}
 	} else {
-		ret = i2c_pwm_set(dev_info, 2, 0, 0);
+		ret = i2c_pwm_set(dev_info, 1, 0, 0);
 		if (ret) {
 			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
 			       DRIVER_NAME, __func__);
@@ -881,7 +886,7 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
 	// struct i2c_device_info *dev_info = filep->private_data;
-	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
+	struct i2c_device_info *dev_info = i2c_pwm1_dev_info;
 
 	int ret = -1;
 	int pwm_freq = 0;
@@ -939,7 +944,7 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
 	// struct i2c_device_info *dev_info = filep->private_data;
-	struct i2c_device_info *dev_info = i2c_pwm_dev_info;
+	struct i2c_device_info *dev_info = i2c_pwm0_dev_info;
 
 	int ret = -1;
 	int pwm_freq = 0;
@@ -969,14 +974,14 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 			       DRIVER_NAME, __func__);
 			return ret;
 		}
-		ret = i2c_pwm_set(dev_info, 1, 0, 2048);
+		ret = i2c_pwm_set(dev_info, 0, 0, 2048);
 		if (ret) {
 			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
 			       DRIVER_NAME, __func__);
 			return ret;
 		}
 	} else {
-		ret = i2c_pwm_set(dev_info, 1, 0, 0);
+		ret = i2c_pwm_set(dev_info, 0, 0, 0);
 		if (ret) {
 			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
 			       DRIVER_NAME, __func__);
@@ -1959,78 +1964,158 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			 "id.driver_data=%d, addr=0x%x\n",
 	       DRIVER_NAME, id->name, (int)(id->driver_data), client->addr);
 
-	i2c_pwm_dev_info = (struct i2c_device_info *)devm_kzalloc(
-	    &client->dev, sizeof(struct i2c_device_info), GFP_KERNEL);
-	i2c_pwm_dev_info->client = client;
-	i2c_set_clientdata(client, i2c_pwm_dev_info);
-	mutex_init(&i2c_pwm_dev_info->lock);
+	if ((int)(id->driver_data) == 0) {
+		i2c_pwm0_dev_info = (struct i2c_device_info *)devm_kzalloc(
+		    &client->dev, sizeof(struct i2c_device_info), GFP_KERNEL);
+		i2c_pwm0_dev_info->client = client;
+		i2c_set_clientdata(client, i2c_pwm0_dev_info);
+		mutex_init(&i2c_pwm0_dev_info->lock);
 
-	/* init pwm driver */
-	ret = i2c_pwm_set_all(i2c_pwm_dev_info, 0, 0);
-	if (ret) {
-		printk(KERN_INFO
-		       "%s: pwm driver not found, or wrong i2c device probed",
-		       DRIVER_NAME);
-		mutex_unlock(&i2c_pwm_dev_info->lock);
-		return -ENODEV;
+		/* init pwm driver */
+		ret = i2c_pwm_set_all(i2c_pwm0_dev_info, 0, 0);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			mutex_unlock(&i2c_pwm0_dev_info->lock);
+			return -ENODEV;
+		}
+
+		mutex_lock(&i2c_pwm0_dev_info->lock);
+
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE2,
+						PCA9685_OUTDRV);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm0_dev_info->lock);
+			return -ENODEV;
+		}
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+						PCA9685_ALLCALL);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm0_dev_info->lock);
+			return -ENODEV;
+		}
+		mdelay(5);
+		/* soft reset pwm driver */
+		mode1 = i2c_smbus_read_byte_data(client, PCA9685_MODE1);
+		if (mode1 < 0) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			return -ENODEV;
+		}
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+						mode1 & ~PCA9685_SLEEP);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm0_dev_info->lock);
+			return -ENODEV;
+		}
+		mdelay(5);
+		mutex_unlock(&i2c_pwm0_dev_info->lock);
+	} else if ((int)(id->driver_data) == 1) {
+		i2c_pwm1_dev_info = (struct i2c_device_info *)devm_kzalloc(
+		    &client->dev, sizeof(struct i2c_device_info), GFP_KERNEL);
+		i2c_pwm1_dev_info->client = client;
+		i2c_set_clientdata(client, i2c_pwm1_dev_info);
+		mutex_init(&i2c_pwm1_dev_info->lock);
+
+		/* init pwm driver */
+		ret = i2c_pwm_set_all(i2c_pwm1_dev_info, 0, 0);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			mutex_unlock(&i2c_pwm1_dev_info->lock);
+			return -ENODEV;
+		}
+
+		mutex_lock(&i2c_pwm1_dev_info->lock);
+
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE2,
+						PCA9685_OUTDRV);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm1_dev_info->lock);
+			return -ENODEV;
+		}
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+						PCA9685_ALLCALL);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm1_dev_info->lock);
+			return -ENODEV;
+		}
+		mdelay(5);
+		/* soft reset pwm driver */
+		mode1 = i2c_smbus_read_byte_data(client, PCA9685_MODE1);
+		if (mode1 < 0) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			return -ENODEV;
+		}
+		ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+						mode1 & ~PCA9685_SLEEP);
+		if (ret) {
+			printk(KERN_INFO "%s: pwm driver not found, or wrong "
+					 "i2c device probed",
+			       DRIVER_NAME);
+			// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d",
+			// __func__,
+			//        client->addr, msb, lsb);
+			mutex_unlock(&i2c_pwm1_dev_info->lock);
+			return -ENODEV;
+		}
+		mdelay(5);
+		mutex_unlock(&i2c_pwm1_dev_info->lock);
 	}
 
-	mutex_lock(&i2c_pwm_dev_info->lock);
-
-	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE2, PCA9685_OUTDRV);
-	if (ret) {
-		printk(KERN_INFO
-		       "%s: pwm driver not found, or wrong i2c device probed",
-		       DRIVER_NAME);
-		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
-		//        client->addr, msb, lsb);
-		mutex_unlock(&i2c_pwm_dev_info->lock);
-		return -ENODEV;
-	}
-	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1, PCA9685_ALLCALL);
-	if (ret) {
-		printk(KERN_INFO
-		       "%s: pwm driver not found, or wrong i2c device probed",
-		       DRIVER_NAME);
-		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
-		//        client->addr, msb, lsb);
-		mutex_unlock(&i2c_pwm_dev_info->lock);
-		return -ENODEV;
-	}
-	mdelay(5);
-	/* soft reset pwm driver */
-	mode1 = i2c_smbus_read_byte_data(client, PCA9685_MODE1);
-	if (mode1 < 0) {
-		printk(KERN_INFO
-		       "%s: pwm driver not found, or wrong i2c device probed",
-		       DRIVER_NAME);
-		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
-		//        client->addr, msb, lsb);
-		return -ENODEV;
-	}
-	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					mode1 & ~PCA9685_SLEEP);
-	if (ret) {
-		printk(KERN_INFO
-		       "%s: pwm driver not found, or wrong i2c device probed",
-		       DRIVER_NAME);
-		// printk(KERN_DEBUG "%s: addr 0x%x, msb %d, lsb %d", __func__,
-		//        client->addr, msb, lsb);
-		mutex_unlock(&i2c_pwm_dev_info->lock);
-		return -ENODEV;
-	}
-	mdelay(5);
-	mutex_unlock(&i2c_pwm_dev_info->lock);
 	/* create character device */
 	size = sizeof(struct cdev) * NUM_DEV_PWM_TOTAL;
 	cdev_pwm_array = (struct cdev *)kmalloc(size, GFP_KERNEL);
 	if ((int)(id->driver_data) == 0) {
 		printk(KERN_DEBUG "%s: going to add cdev", __func__);
-		if (buzzer_register_dev(i2c_pwm_dev_info))
+		if (motorrawl_register_dev(i2c_pwm0_dev_info))
 			return -ENOMEM;
-		if (motorrawr_register_dev(i2c_pwm_dev_info))
+	} else if ((int)(id->driver_data) == 1) {
+		printk(KERN_DEBUG "%s: going to add cdev", __func__);
+		if (buzzer_register_dev(i2c_pwm1_dev_info))
 			return -ENOMEM;
-		if (motorrawl_register_dev(i2c_pwm_dev_info))
+		if (motorrawr_register_dev(i2c_pwm1_dev_info))
 			return -ENOMEM;
 	}
 
@@ -2044,9 +2129,12 @@ static int i2c_pwm_probe(struct i2c_client *client,
 static int i2c_pwm_init(void)
 {
 	int retval = 0;
-	struct i2c_adapter *i2c_adap_pwm;
-	struct i2c_board_info i2c_board_info_pwm = {
-	    I2C_BOARD_INFO("pwmdriver", PCA9685_I2C_ADDR)};
+	struct i2c_adapter *i2c_adap_pwm0;
+	struct i2c_adapter *i2c_adap_pwm1;
+	struct i2c_board_info i2c_board_info_pwm0 = {
+	    I2C_BOARD_INFO("pwmdriver0", PCA9685_L_I2C_ADDR)};
+	struct i2c_board_info i2c_board_info_pwm1 = {
+	    I2C_BOARD_INFO("pwmdriver1", PCA9685_R_I2C_ADDR)};
 
 	printk(KERN_DEBUG "%s: initializing i2c device", __func__);
 	retval = i2c_add_driver(&i2c_pwm_driver);
@@ -2060,9 +2148,12 @@ static int i2c_pwm_init(void)
 	 * (https://www.kernel.org/doc/Documentation/i2c/instantiating-devices)
 	 */
 	printk(KERN_DEBUG "%s: adding i2c pwm driver", __func__);
-	i2c_adap_pwm = i2c_get_adapter(1);
-	i2c_client_pwm = i2c_new_device(i2c_adap_pwm, &i2c_board_info_pwm);
-	i2c_put_adapter(i2c_adap_pwm);
+	i2c_adap_pwm0 = i2c_get_adapter(1);
+	i2c_adap_pwm1 = i2c_get_adapter(1);
+	i2c_client_pwm0 = i2c_new_device(i2c_adap_pwm0, &i2c_board_info_pwm0);
+	i2c_client_pwm1 = i2c_new_device(i2c_adap_pwm1, &i2c_board_info_pwm1);
+	i2c_put_adapter(i2c_adap_pwm0);
+	i2c_put_adapter(i2c_adap_pwm1);
 	printk(KERN_DEBUG "%s: added i2c pwm driver", __func__);
 
 	return retval;
@@ -2077,8 +2168,10 @@ static void i2c_pwm_exit(void)
 	/* delete I2C driver */
 	i2c_del_driver(&i2c_pwm_driver);
 	/* free memory */
-	if (i2c_client_pwm)
-		i2c_unregister_device(i2c_client_pwm);
+	if (i2c_client_pwm0)
+		i2c_unregister_device(i2c_client_pwm0);
+	if (i2c_client_pwm1)
+		i2c_unregister_device(i2c_client_pwm1);
 }
 
 /*
