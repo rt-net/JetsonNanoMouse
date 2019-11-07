@@ -28,7 +28,7 @@ install: rtmouse.ko ## install rtmouse.ko and set auto load
 	cp rtmouse.ko /lib/modules/`uname -r`/
 	depmod -A
 	modprobe rtmouse
-	rtmouse | sudo tee /etc/modules-load.d/rtmouse.conf > /dev/null
+	echo rtmouse | sudo tee /etc/modules-load.d/rtmouse.conf > /dev/null
 
 uninstall: ## remove rtmouse.ko and un-set auto load
 	-modprobe -r rtmouse
