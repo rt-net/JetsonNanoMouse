@@ -24,7 +24,7 @@ clean: ## remove rtmouse.ko and other object files
 
 install: rtmouse.ko ## install rtmouse.ko and set auto load
 	cp 50-rtmouse.rules /etc/udev/rules.d/
-	cp rtmouse.ko /lib/modules/`uname -r`/
+	cp rtmouse.ko /lib/modules/`uname -r`/kernel/drivers/misc/
 	depmod -A
 	modprobe rtmouse
 	echo rtmouse | sudo tee /etc/modules-load.d/rtmouse.conf > /dev/null
@@ -33,7 +33,7 @@ uninstall: ## remove rtmouse.ko and un-set auto load
 	-modprobe -r rtmouse
 	rm /etc/udev/rules.d/50-rtmouse.rules
 	rm /etc/modules-load.d/rtmouse.conf
-	rm /lib/modules/`uname -r`/rtmouse.ko
+	rm /lib/modules/`uname -r`/kernel/drivers/misc/rtmouse.ko
 
 insmod: rtmouse.ko ## insmod rtmouse.ko
 	sudo insmod rtmouse.ko
