@@ -13,7 +13,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.0.2");
+MODULE_VERSION("0.1.0");
 
 /* --- GPIO Pins --- */
 #define gpioLED0 13       // PIN22
@@ -839,6 +839,7 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 
 	int ret = -1;
 	int pwm_freq = 0;
+	static int previous_pwm_freq = 0;
 
 	if (count < 0)
 		return 0;
@@ -850,31 +851,33 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 		return ret;
 	}
 
-	// i2c_pwm_set_all(dev_info, 0, 0);
-	if (pwm_freq) {
-		ret = i2c_pwm_set_freq(dev_info, pwm_freq);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
+	if (pwm_freq != previous_pwm_freq) {
+		// i2c_pwm_set_all(dev_info, 0, 0);
+		if (pwm_freq) {
+			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+			ret = i2c_pwm_set(dev_info, 1, 0, 3072);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+		} else {
+			ret = i2c_pwm_set(dev_info, 1, 0, 0);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
 		}
-		ret = i2c_pwm_set(dev_info, 1, 0, 3072);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
-	} else {
-		ret = i2c_pwm_set(dev_info, 1, 0, 0);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
+		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
+			pwm_freq);
 	}
-
-	printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-	       pwm_freq);
+	previous_pwm_freq = pwm_freq;
 	return count;
 }
 
@@ -890,6 +893,7 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 
 	int ret = -1;
 	int pwm_freq = 0;
+	static int previous_pwm_freq = 0;
 
 	if (count < 0)
 		return 0;
@@ -908,31 +912,33 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 		gpio_set_value(gpioMOTORDIRR, 1);
 	}
 
-	// i2c_pwm_set_all(dev_info, 0, 0);
-	if (pwm_freq) {
-		ret = i2c_pwm_set_freq(dev_info, pwm_freq);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
+	if (pwm_freq != previous_pwm_freq) {
+		// i2c_pwm_set_all(dev_info, 0, 0);
+		if (pwm_freq) {
+			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+			ret = i2c_pwm_set(dev_info, 0, 0, 2048);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+		} else {
+			ret = i2c_pwm_set(dev_info, 0, 0, 0);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
 		}
-		ret = i2c_pwm_set(dev_info, 0, 0, 1024);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
-	} else {
-		ret = i2c_pwm_set(dev_info, 0, 0, 0);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
+		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
+			pwm_freq);
 	}
-
-	printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-	       pwm_freq);
+	previous_pwm_freq = pwm_freq;
 	return count;
 }
 
@@ -948,6 +954,7 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 
 	int ret = -1;
 	int pwm_freq = 0;
+	static int previous_pwm_freq = 0;
 
 	if (count < 0)
 		return 0;
@@ -966,31 +973,33 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 		gpio_set_value(gpioMOTORDIRL, 0);
 	}
 
-	// i2c_pwm_set_all(dev_info, 0, 0);
-	if (pwm_freq) {
-		ret = i2c_pwm_set_freq(dev_info, pwm_freq);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
+	if (pwm_freq != previous_pwm_freq) {
+		// i2c_pwm_set_all(dev_info, 0, 0);
+		if (pwm_freq) {
+			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+			ret = i2c_pwm_set(dev_info, 0, 0, 2048);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
+		} else {
+			ret = i2c_pwm_set(dev_info, 0, 0, 0);
+			if (ret) {
+				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
+					DRIVER_NAME, __func__);
+				return ret;
+			}
 		}
-		ret = i2c_pwm_set(dev_info, 0, 0, 2048);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
-	} else {
-		ret = i2c_pwm_set(dev_info, 0, 0, 0);
-		if (ret) {
-			printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-			       DRIVER_NAME, __func__);
-			return ret;
-		}
+		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
+			pwm_freq);
 	}
-
-	printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-	       pwm_freq);
+	previous_pwm_freq = pwm_freq;
 	return count;
 }
 
