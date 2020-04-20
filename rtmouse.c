@@ -13,7 +13,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.1");
+MODULE_VERSION("0.1.2");
 
 /* --- GPIO Pins --- */
 #define gpioLED0 13       // PIN22
