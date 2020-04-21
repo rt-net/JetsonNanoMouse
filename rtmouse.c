@@ -13,7 +13,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.0");
+MODULE_VERSION("0.1.1");
 
 /* --- GPIO Pins --- */
 #define gpioLED0 13       // PIN22
@@ -707,7 +707,7 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 		mutex_unlock(&dev_info->lock);
 		return -ENODEV;
 	}
-	mdelay(5);
+	udelay(500);
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
 					oldmode | PCA9685_RESTART);
 	if (ret < 0) {
@@ -2016,7 +2016,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			mutex_unlock(&i2c_pwm0_dev_info->lock);
 			return -ENODEV;
 		}
-		mdelay(5);
+		udelay(500);
 		/* soft reset pwm driver */
 		mode1 = i2c_smbus_read_byte_data(client, PCA9685_MODE1);
 		if (mode1 < 0) {
@@ -2040,7 +2040,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			mutex_unlock(&i2c_pwm0_dev_info->lock);
 			return -ENODEV;
 		}
-		mdelay(5);
+		udelay(500);
 		mutex_unlock(&i2c_pwm0_dev_info->lock);
 	} else if ((int)(id->driver_data) == 1) {
 		i2c_pwm1_dev_info = (struct i2c_device_info *)devm_kzalloc(
@@ -2085,7 +2085,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			mutex_unlock(&i2c_pwm1_dev_info->lock);
 			return -ENODEV;
 		}
-		mdelay(5);
+		udelay(500);
 		/* soft reset pwm driver */
 		mode1 = i2c_smbus_read_byte_data(client, PCA9685_MODE1);
 		if (mode1 < 0) {
@@ -2109,7 +2109,7 @@ static int i2c_pwm_probe(struct i2c_client *client,
 			mutex_unlock(&i2c_pwm1_dev_info->lock);
 			return -ENODEV;
 		}
-		mdelay(5);
+		udelay(500);
 		mutex_unlock(&i2c_pwm1_dev_info->lock);
 	}
 
