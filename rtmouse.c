@@ -689,7 +689,13 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 		return -ENODEV;
 	}
 	/* set prescale */
-	prescale = (int)(6103.515625 / freq - 0.5); // (int)(round(25*10^6/4096/200) - 1
+	// (int)(round(25*10^6/4096/freq) - 1
+	if ((25000000 * 10 / 4096 / freq) % 10 < 5) {
+		prescale = (int)(25000000 / 4096 / freq) - 1;
+	}
+	else{
+		prescale = (int)(25000000 / 4096 / freq);
+	}
 	ret = i2c_smbus_write_byte_data(client, PCA9685_PRESCALE, prescale);
 	if (ret < 0) {
 		printk(KERN_ERR
