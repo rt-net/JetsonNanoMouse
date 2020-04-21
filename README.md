@@ -1,3 +1,15 @@
+# JetsonNanoMouse
+
+A linux device driver of Jetson Nano Mouse
+
+## Usage
+
+After downloading(`git clone`) this repository, run the following commands in the directory.
+
+```sh
+make
+sudo make install
+```
 
 ## License
 
