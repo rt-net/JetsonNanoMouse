@@ -11,7 +11,7 @@
 #include <linux/uaccess.h>
 
 MODULE_AUTHOR("RT Corporation");
-MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
+MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.2");
 
