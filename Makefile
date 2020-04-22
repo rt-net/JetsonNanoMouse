@@ -8,11 +8,11 @@ MAKEFILE_DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))); pwd)
 VERBOSE:=0
 ccflags-y += -std=gnu99 -Wall -Wno-declaration-after-statement
 
-all: ## build the Raspberry Pi Mouse kernel module, rtmouse.ko
+all: ## build the Jetson Nano Mouse kernel module, rtmouse.ko
 	make rtmouse.ko
 
 help:
-	@echo "the Raspberry Pi Mouse device driver installer"
+	@echo "the Jetson Nano Mouse device driver installer"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 
