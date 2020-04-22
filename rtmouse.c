@@ -158,7 +158,6 @@ static int spi_chip_select = 0;
 #define CNTR_I2C_ADDR 0x11
 #define CNT_MSB_REG 0x10
 #define CNT_LSB_REG 0x11
-#define PCA9685_I2C_ADDR
 #define PCA9685_L_I2C_ADDR 0x40
 #define PCA9685_R_I2C_ADDR 0x41
 #define PCA9685_MODE1 0x00
