@@ -1132,7 +1132,7 @@ static struct file_operations motorrawl_fops = {
 };
 
 /* --- Device Driver Registration and Device File Creation --- */
-/* /dev/rtled0,/dev/rtled1,/dev/rtled2 */
+/* /dev/rtled0,/dev/rtled1,/dev/rtled2,/dev/rtled3 */
 static int led_register_dev(void)
 {
 	int retval;
