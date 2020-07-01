@@ -37,25 +37,25 @@
 #include <linux/uaccess.h>
 
 MODULE_AUTHOR("RT Corporation");
-MODULE_DESCRIPTION("A simple driver for control Jetson Nano");
+MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.2");
 
 /* --- GPIO Pins --- */
-#define gpioLED0 13       // PIN22
-#define gpioLED1 15       // PIN18
-#define gpioLED2 232      // PIN16
-#define gpioLED3 79       // PIN16
-#define gpioSW0 78	// PIN40
-#define gpioSW1 12	// PIN37
-#define gpioSW2 77	// PIN38
-#define gpioSENR 194      // PIN15
-#define gpioSENL 149      // PIN29
-#define gpioSENRF 14      // PI13
-#define gpioSENLF 50      // PIN11
-#define gpioMOTOREN 200   // PIN31
-#define gpioMOTORDIRR 168 // PIN32
-#define gpioMOTORDIRL 216 // PIN7
+#define GPIO_LED0 13	 // PIN22
+#define GPIO_LED1 15	 // PIN18
+#define GPIO_LED2 232	// PIN16
+#define GPIO_LED3 79	 // PIN16
+#define GPIO_SW0 78	  // PIN40
+#define GPIO_SW1 12	  // PIN37
+#define GPIO_SW2 77	  // PIN38
+#define GPIO_SEN_R 194       // PIN15
+#define GPIO_SEN_L 149       // PIN29
+#define GPIO_SEN_RF 14       // PI13
+#define GPIO_SEN_LF 50       // PIN11
+#define GPIO_MOTOR_EN 200    // PIN31
+#define GPIO_MOTOR_DIR_R 168 // PIN32
+#define GPIO_MOTOR_DIR_L 216 // PIN7
 
 #define MAX_BUFLEN 64
 #define DEBOUNCE_TIME 50
@@ -160,7 +160,6 @@ static int spi_chip_select = 0;
 #define CNTR_I2C_ADDR 0x11
 #define CNT_MSB_REG 0x10
 #define CNT_LSB_REG 0x11
-#define PCA9685_I2C_ADDR
 #define PCA9685_L_I2C_ADDR 0x40
 #define PCA9685_R_I2C_ADDR 0x41
 #define PCA9685_MODE1 0x00
@@ -296,16 +295,16 @@ static int led_put(int ledno)
 {
 	switch (ledno) {
 	case 0:
-		gpio_set_value(gpioLED0, 1);
+		gpio_set_value(GPIO_LED0, 1);
 		break;
 	case 1:
-		gpio_set_value(gpioLED1, 1);
+		gpio_set_value(GPIO_LED1, 1);
 		break;
 	case 2:
-		gpio_set_value(gpioLED2, 1);
+		gpio_set_value(GPIO_LED2, 1);
 		break;
 	case 3:
-		gpio_set_value(gpioLED3, 1);
+		gpio_set_value(GPIO_LED3, 1);
 		break;
 	}
 	return 0;
@@ -319,16 +318,16 @@ static int led_del(int ledno)
 {
 	switch (ledno) {
 	case 0:
-		gpio_set_value(gpioLED0, 0);
+		gpio_set_value(GPIO_LED0, 0);
 		break;
 	case 1:
-		gpio_set_value(gpioLED1, 0);
+		gpio_set_value(GPIO_LED1, 0);
 		break;
 	case 2:
-		gpio_set_value(gpioLED2, 0);
+		gpio_set_value(GPIO_LED2, 0);
 		break;
 	case 3:
-		gpio_set_value(gpioLED3, 0);
+		gpio_set_value(GPIO_LED3, 0);
 		break;
 	}
 
@@ -376,18 +375,18 @@ static ssize_t sw_read(struct file *filep, char __user *buf, size_t count,
 	unsigned char rw_buf[MAX_BUFLEN];
 	unsigned int ret = 0;
 	int len;
-	unsigned int pin = gpioSW0;
+	unsigned int pin = GPIO_SW0;
 	int minor = *((int *)filep->private_data);
 
 	switch (minor) {
 	case 0:
-		pin = gpioSW0;
+		pin = GPIO_SW0;
 		break;
 	case 1:
-		pin = gpioSW1;
+		pin = GPIO_SW1;
 		break;
 	case 2:
-		pin = gpioSW2;
+		pin = GPIO_SW2;
 		break;
 	default:
 		return 0;
@@ -431,8 +430,8 @@ static ssize_t sws_read(struct file *filep, char __user *buf, size_t count,
 	if (*f_pos > 0)
 		return 0; /* End of file */
 
-	sprintf(rw_buf, "%d %d %d\n", !gpio_get_value(gpioSW0),
-		!gpio_get_value(gpioSW1), !gpio_get_value(gpioSW2));
+	sprintf(rw_buf, "%d %d %d\n", !gpio_get_value(GPIO_SW0),
+		!gpio_get_value(GPIO_SW1), !gpio_get_value(GPIO_SW2));
 
 	buflen = strlen(rw_buf);
 	count = buflen;
@@ -472,31 +471,31 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 	/* get values through MCP3204 */
 	/* Right side */
 	or = mcp3204_get_value(R_AD_CH);
-	gpio_set_value(gpioSENR, 1);
+	gpio_set_value(GPIO_SEN_R, 1);
 	udelay(usecs);
 	r = mcp3204_get_value(R_AD_CH);
-	gpio_set_value(gpioSENR, 0);
+	gpio_set_value(GPIO_SEN_R, 0);
 	udelay(usecs);
 	/* Left side */
 	ol = mcp3204_get_value(L_AD_CH);
-	gpio_set_value(gpioSENL, 1);
+	gpio_set_value(GPIO_SEN_L, 1);
 	udelay(usecs);
 	l = mcp3204_get_value(L_AD_CH);
-	gpio_set_value(gpioSENL, 0);
+	gpio_set_value(GPIO_SEN_L, 0);
 	udelay(usecs);
 	/* Right front side */
 	orf = mcp3204_get_value(RF_AD_CH);
-	gpio_set_value(gpioSENRF, 1);
+	gpio_set_value(GPIO_SEN_RF, 1);
 	udelay(usecs);
 	rf = mcp3204_get_value(RF_AD_CH);
-	gpio_set_value(gpioSENRF, 0);
+	gpio_set_value(GPIO_SEN_RF, 0);
 	udelay(usecs);
 	/* Left front side */
 	olf = mcp3204_get_value(LF_AD_CH);
-	gpio_set_value(gpioSENLF, 1);
+	gpio_set_value(GPIO_SEN_LF, 1);
 	udelay(usecs);
 	lf = mcp3204_get_value(LF_AD_CH);
-	gpio_set_value(gpioSENLF, 0);
+	gpio_set_value(GPIO_SEN_LF, 0);
 	udelay(usecs);
 
 	/* set sensor data to rw_buf(static buffer) */
@@ -535,10 +534,10 @@ static ssize_t motoren_write(struct file *filep, const char __user *buf,
 		}
 		switch (cval) {
 		case '1':
-			gpio_set_value(gpioMOTOREN, 1);
+			gpio_set_value(GPIO_MOTOR_EN, 1);
 			break;
 		case '0':
-			gpio_set_value(gpioMOTOREN, 0);
+			gpio_set_value(GPIO_MOTOR_EN, 0);
 			break;
 		}
 		return sizeof(char);
@@ -688,7 +687,7 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 	int prescale = 0;
 	int oldmode = 0;
 
-	printk(KERN_INFO "%s: set 0x%x to %d[Hz]\n", DRIVER_NAME, client->addr,
+	printk(KERN_DEBUG "%s: set 0x%x to %d[Hz]\n", DRIVER_NAME, client->addr,
 	       freq);
 
 	mutex_lock(&dev_info->lock);
@@ -718,8 +717,7 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 	// (int)(round(25*10^6/4096/freq) - 1
 	if ((25000000 * 10 / 4096 / freq) % 10 < 5) {
 		prescale = (int)(25000000 / 4096 / freq) - 1;
-	}
-	else{
+	} else {
 		prescale = (int)(25000000 / 4096 / freq);
 	}
 	ret = i2c_smbus_write_byte_data(client, PCA9685_PRESCALE, prescale);
@@ -888,26 +886,29 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 		if (pwm_freq) {
 			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set_freq in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 			ret = i2c_pwm_set(dev_info, 1, 0, 3072);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		} else {
 			ret = i2c_pwm_set(dev_info, 1, 0, 0);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		}
 		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-			pwm_freq);
+		       pwm_freq);
 	}
 	previous_pwm_freq = pwm_freq;
 	return count;
@@ -938,10 +939,10 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 	}
 
 	if (pwm_freq < 0) {
-		gpio_set_value(gpioMOTORDIRR, 0);
+		gpio_set_value(GPIO_MOTOR_DIR_R, 0);
 		pwm_freq *= -1;
 	} else {
-		gpio_set_value(gpioMOTORDIRR, 1);
+		gpio_set_value(GPIO_MOTOR_DIR_R, 1);
 	}
 
 	if (pwm_freq != previous_pwm_freq) {
@@ -949,26 +950,29 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 		if (pwm_freq) {
 			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set_freq in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 			ret = i2c_pwm_set(dev_info, 0, 0, 2048);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		} else {
 			ret = i2c_pwm_set(dev_info, 0, 0, 0);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		}
 		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-			pwm_freq);
+		       pwm_freq);
 	}
 	previous_pwm_freq = pwm_freq;
 	return count;
@@ -999,10 +1003,10 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 	}
 
 	if (pwm_freq < 0) {
-		gpio_set_value(gpioMOTORDIRL, 1);
+		gpio_set_value(GPIO_MOTOR_DIR_L, 1);
 		pwm_freq *= -1;
 	} else {
-		gpio_set_value(gpioMOTORDIRL, 0);
+		gpio_set_value(GPIO_MOTOR_DIR_L, 0);
 	}
 
 	if (pwm_freq != previous_pwm_freq) {
@@ -1010,26 +1014,29 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 		if (pwm_freq) {
 			ret = i2c_pwm_set_freq(dev_info, pwm_freq);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set_freq in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set_freq in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 			ret = i2c_pwm_set(dev_info, 0, 0, 2048);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		} else {
 			ret = i2c_pwm_set(dev_info, 0, 0, 0);
 			if (ret) {
-				printk(KERN_ERR "%s: error i2c_pwm_set in %s()\n",
-					DRIVER_NAME, __func__);
+				printk(KERN_ERR
+				       "%s: error i2c_pwm_set in %s()\n",
+				       DRIVER_NAME, __func__);
 				return ret;
 			}
 		}
 		printk(KERN_DEBUG "%s: set pwm driver freq %d\n", DRIVER_NAME,
-			pwm_freq);
+		       pwm_freq);
 	}
 	previous_pwm_freq = pwm_freq;
 	return count;
@@ -1134,7 +1141,7 @@ static struct file_operations motorrawl_fops = {
 };
 
 /* --- Device Driver Registration and Device File Creation --- */
-/* /dev/rtled0,/dev/rtled1,/dev/rtled2 */
+/* /dev/rtled0,/dev/rtled1,/dev/rtled2,/dev/rtled3 */
 static int led_register_dev(void)
 {
 	int retval;
@@ -2297,121 +2304,121 @@ static int __init init_mod(void)
 
 	mutex_init(&lock);
 
-	if (!gpio_is_valid(gpioSW0)) {
+	if (!gpio_is_valid(GPIO_SW0)) {
 		printk(KERN_INFO "GPIO: invalid SW0 GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioSW1)) {
+	if (!gpio_is_valid(GPIO_SW1)) {
 		printk(KERN_INFO "GPIO: invalid SW1 GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioSW2)) {
+	if (!gpio_is_valid(GPIO_SW2)) {
 		printk(KERN_INFO "GPIO: invalid SW2 GPIO\n");
 		return -ENODEV;
 	}
 
-	retval = gpio_request(gpioSW0, "sysfs");
-	retval = gpio_request(gpioSW1, "sysfs");
-	retval = gpio_request(gpioSW2, "sysfs");
+	retval = gpio_request(GPIO_SW0, "sysfs");
+	retval = gpio_request(GPIO_SW1, "sysfs");
+	retval = gpio_request(GPIO_SW2, "sysfs");
 
-	retval = gpio_direction_input(gpioSW0);
-	retval = gpio_set_debounce(gpioSW0, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW0, 0);
+	retval = gpio_direction_input(GPIO_SW0);
+	retval = gpio_set_debounce(GPIO_SW0, DEBOUNCE_TIME);
+	retval = gpio_export(GPIO_SW0, 0);
 
-	retval = gpio_direction_input(gpioSW1);
-	retval = gpio_set_debounce(gpioSW1, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW1, 0);
+	retval = gpio_direction_input(GPIO_SW1);
+	retval = gpio_set_debounce(GPIO_SW1, DEBOUNCE_TIME);
+	retval = gpio_export(GPIO_SW1, 0);
 
-	retval = gpio_direction_input(gpioSW2);
-	retval = gpio_set_debounce(gpioSW2, DEBOUNCE_TIME);
-	retval = gpio_export(gpioSW2, 0);
+	retval = gpio_direction_input(GPIO_SW2);
+	retval = gpio_set_debounce(GPIO_SW2, DEBOUNCE_TIME);
+	retval = gpio_export(GPIO_SW2, 0);
 
-	if (!gpio_is_valid(gpioLED0)) {
+	if (!gpio_is_valid(GPIO_LED0)) {
 		printk(KERN_INFO "GPIO: invalid LED0 GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioLED1)) {
+	if (!gpio_is_valid(GPIO_LED1)) {
 		printk(KERN_INFO "GPIO: invalid LED1 GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioLED2)) {
+	if (!gpio_is_valid(GPIO_LED2)) {
 		printk(KERN_INFO "GPIO: invalid LED2 GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioLED3)) {
+	if (!gpio_is_valid(GPIO_LED3)) {
 		printk(KERN_INFO "GPIO: invalid LED3 GPIO\n");
 		return -ENODEV;
 	}
 
-	retval = gpio_request(gpioLED0, "sysfs");
-	retval = gpio_request(gpioLED1, "sysfs");
-	retval = gpio_request(gpioLED2, "sysfs");
-	retval = gpio_request(gpioLED3, "sysfs");
+	retval = gpio_request(GPIO_LED0, "sysfs");
+	retval = gpio_request(GPIO_LED1, "sysfs");
+	retval = gpio_request(GPIO_LED2, "sysfs");
+	retval = gpio_request(GPIO_LED3, "sysfs");
 
-	retval = gpio_direction_output(gpioLED0, 0);
-	retval = gpio_export(gpioLED0, 0);
+	retval = gpio_direction_output(GPIO_LED0, 0);
+	retval = gpio_export(GPIO_LED0, 0);
 
-	retval = gpio_direction_output(gpioLED1, 0);
-	retval = gpio_export(gpioLED1, 0);
+	retval = gpio_direction_output(GPIO_LED1, 0);
+	retval = gpio_export(GPIO_LED1, 0);
 
-	retval = gpio_direction_output(gpioLED2, 0);
-	retval = gpio_export(gpioLED2, 0);
+	retval = gpio_direction_output(GPIO_LED2, 0);
+	retval = gpio_export(GPIO_LED2, 0);
 
-	retval = gpio_direction_output(gpioLED3, 0);
-	retval = gpio_export(gpioLED3, 0);
+	retval = gpio_direction_output(GPIO_LED3, 0);
+	retval = gpio_export(GPIO_LED3, 0);
 
-	if (!gpio_is_valid(gpioMOTOREN)) {
+	if (!gpio_is_valid(GPIO_MOTOR_EN)) {
 		printk(KERN_INFO "GPIO: invalid MOTOR EN GPIO\n");
 		return -ENODEV;
 	}
-	retval = gpio_request(gpioMOTOREN, "sysfs");
+	retval = gpio_request(GPIO_MOTOR_EN, "sysfs");
 
-	retval = gpio_direction_output(gpioMOTOREN, 0);
-	retval = gpio_export(gpioMOTOREN, 1);
+	retval = gpio_direction_output(GPIO_MOTOR_EN, 0);
+	retval = gpio_export(GPIO_MOTOR_EN, 1);
 
-	if (!gpio_is_valid(gpioSENR)) {
+	if (!gpio_is_valid(GPIO_SEN_R)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR RIGHT GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioSENL)) {
+	if (!gpio_is_valid(GPIO_SEN_L)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR LEFT GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioSENRF)) {
+	if (!gpio_is_valid(GPIO_SEN_RF)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR RIGHT FRONT GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioSENLF)) {
+	if (!gpio_is_valid(GPIO_SEN_LF)) {
 		printk(KERN_INFO "GPIO: invalid SENSOR LEFT FRONT GPIO\n");
 		return -ENODEV;
 	}
 
-	retval = gpio_request(gpioSENR, "sysfs");
-	retval = gpio_request(gpioSENL, "sysfs");
-	retval = gpio_request(gpioSENRF, "sysfs");
-	retval = gpio_request(gpioSENLF, "sysfs");
+	retval = gpio_request(GPIO_SEN_R, "sysfs");
+	retval = gpio_request(GPIO_SEN_L, "sysfs");
+	retval = gpio_request(GPIO_SEN_RF, "sysfs");
+	retval = gpio_request(GPIO_SEN_LF, "sysfs");
 
-	retval = gpio_direction_output(gpioSENR, 0);
-	retval = gpio_export(gpioSENR, 0);
-	retval = gpio_direction_output(gpioSENL, 0);
-	retval = gpio_export(gpioSENL, 0);
-	retval = gpio_direction_output(gpioSENRF, 0);
-	retval = gpio_export(gpioSENRF, 0);
-	retval = gpio_direction_output(gpioSENLF, 0);
-	retval = gpio_export(gpioSENLF, 0);
+	retval = gpio_direction_output(GPIO_SEN_R, 0);
+	retval = gpio_export(GPIO_SEN_R, 0);
+	retval = gpio_direction_output(GPIO_SEN_L, 0);
+	retval = gpio_export(GPIO_SEN_L, 0);
+	retval = gpio_direction_output(GPIO_SEN_RF, 0);
+	retval = gpio_export(GPIO_SEN_RF, 0);
+	retval = gpio_direction_output(GPIO_SEN_LF, 0);
+	retval = gpio_export(GPIO_SEN_LF, 0);
 
-	if (!gpio_is_valid(gpioMOTORDIRR)) {
+	if (!gpio_is_valid(GPIO_MOTOR_DIR_R)) {
 		printk(KERN_INFO "GPIO: invalid MOTORDIRR GPIO\n");
 		return -ENODEV;
 	}
-	if (!gpio_is_valid(gpioMOTORDIRL)) {
+	if (!gpio_is_valid(GPIO_MOTOR_DIR_L)) {
 		printk(KERN_INFO "GPIO: invalid MOTORDIRL GPIO\n");
 		return -ENODEV;
 	}
-	retval = gpio_direction_output(gpioMOTORDIRR, 0);
-	retval = gpio_export(gpioMOTORDIRR, 0);
-	retval = gpio_direction_output(gpioMOTORDIRL, 0);
-	retval = gpio_export(gpioMOTORDIRL, 0);
+	retval = gpio_direction_output(GPIO_MOTOR_DIR_R, 0);
+	retval = gpio_export(GPIO_MOTOR_DIR_R, 0);
+	retval = gpio_direction_output(GPIO_MOTOR_DIR_L, 0);
+	retval = gpio_export(GPIO_MOTOR_DIR_L, 0);
 
 	size = sizeof(struct cdev) * NUM_DEV_TOTAL;
 	cdev_array = (struct cdev *)kmalloc(size, GFP_KERNEL);
@@ -2541,42 +2548,42 @@ static void __exit cleanup_mod(void)
 
 	/* GPIO unmap */
 	/* set all gpio as low */
-	gpio_set_value(gpioLED0, 0);
-	gpio_set_value(gpioLED1, 0);
-	gpio_set_value(gpioLED2, 0);
-	gpio_set_value(gpioLED3, 0);
-	gpio_set_value(gpioSENR, 0);
-	gpio_set_value(gpioSENL, 0);
-	gpio_set_value(gpioSENRF, 0);
-	gpio_set_value(gpioSENLF, 0);
-	gpio_set_value(gpioMOTOREN, 0);
+	gpio_set_value(GPIO_LED0, 0);
+	gpio_set_value(GPIO_LED1, 0);
+	gpio_set_value(GPIO_LED2, 0);
+	gpio_set_value(GPIO_LED3, 0);
+	gpio_set_value(GPIO_SEN_R, 0);
+	gpio_set_value(GPIO_SEN_L, 0);
+	gpio_set_value(GPIO_SEN_RF, 0);
+	gpio_set_value(GPIO_SEN_LF, 0);
+	gpio_set_value(GPIO_MOTOR_EN, 0);
 	/* sysfs: reverses the effect of exporting to userspace */
-	gpio_unexport(gpioLED0);
-	gpio_unexport(gpioLED1);
-	gpio_unexport(gpioLED2);
-	gpio_unexport(gpioLED3);
-	gpio_unexport(gpioSENR);
-	gpio_unexport(gpioSENL);
-	gpio_unexport(gpioSENRF);
-	gpio_unexport(gpioSENLF);
-	gpio_unexport(gpioMOTOREN);
-	gpio_unexport(gpioMOTORDIRR);
-	gpio_unexport(gpioMOTORDIRL);
+	gpio_unexport(GPIO_LED0);
+	gpio_unexport(GPIO_LED1);
+	gpio_unexport(GPIO_LED2);
+	gpio_unexport(GPIO_LED3);
+	gpio_unexport(GPIO_SEN_R);
+	gpio_unexport(GPIO_SEN_L);
+	gpio_unexport(GPIO_SEN_RF);
+	gpio_unexport(GPIO_SEN_LF);
+	gpio_unexport(GPIO_MOTOR_EN);
+	gpio_unexport(GPIO_MOTOR_DIR_R);
+	gpio_unexport(GPIO_MOTOR_DIR_L);
 	/* reverse gpio_export() */
-	gpio_free(gpioLED0);
-	gpio_free(gpioLED1);
-	gpio_free(gpioLED2);
-	gpio_free(gpioLED3);
-	gpio_free(gpioSW0);
-	gpio_free(gpioSW1);
-	gpio_free(gpioSW2);
-	gpio_free(gpioSENR);
-	gpio_free(gpioSENL);
-	gpio_free(gpioSENRF);
-	gpio_free(gpioSENLF);
-	gpio_free(gpioMOTOREN);
-	gpio_free(gpioMOTORDIRR);
-	gpio_free(gpioMOTORDIRL);
+	gpio_free(GPIO_LED0);
+	gpio_free(GPIO_LED1);
+	gpio_free(GPIO_LED2);
+	gpio_free(GPIO_LED3);
+	gpio_free(GPIO_SW0);
+	gpio_free(GPIO_SW1);
+	gpio_free(GPIO_SW2);
+	gpio_free(GPIO_SEN_R);
+	gpio_free(GPIO_SEN_L);
+	gpio_free(GPIO_SEN_RF);
+	gpio_free(GPIO_SEN_LF);
+	gpio_free(GPIO_MOTOR_EN);
+	gpio_free(GPIO_MOTOR_DIR_R);
+	gpio_free(GPIO_MOTOR_DIR_L);
 	printk("module being removed at %lu\n", jiffies);
 }
 
