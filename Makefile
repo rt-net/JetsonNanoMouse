@@ -1,30 +1,18 @@
-MODULE:= rtmouse
-obj-m:= $(MODULE).o
-clean-files := *.o *.ko *.mod.[co] *~
-
-LINUX_SRC_DIR:=/lib/modules/$(shell uname -r)/build
 MAKEFILE_DIR := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))); pwd)
-
-VERBOSE:=0
-ccflags-y += -std=gnu99 -Wall -Wno-declaration-after-statement
-
-all: ## build the Jetson Nano Mouse kernel module, rtmouse.ko
-	make rtmouse.ko
 
 help:
 	@echo "the Jetson Nano Mouse device driver installer"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
+build: ## build the Jetson Nano Mouse kernel module, rtmouse.ko
+	cd $(MAKEFILE_DIR)/drivers/rtmouse && make rtmouse.ko
 
-rtmouse.ko: rtmouse.c
-	make -C $(LINUX_SRC_DIR) M=$(shell pwd) V=$(VERBOSE) modules
+clean: ## clean the object files created while building the kernel module
+	cd $(MAKEFILE_DIR)/drivers/rtmouse && make clean
 
-clean: ## remove rtmouse.ko and other object files
-	make -C $(LINUX_SRC_DIR) M=$(shell pwd) V=$(VERBOSE) clean
-
-install: rtmouse.ko ## install rtmouse.ko and set auto load
+install: build ## install rtmouse.ko and set auto load
 	cp 50-rtmouse.rules /etc/udev/rules.d/
-	cp rtmouse.ko /lib/modules/`uname -r`/kernel/drivers/misc/
+	cp $(MAKEFILE_DIR)/drivers/rtmouse/rtmouse.ko /lib/modules/`uname -r`/kernel/drivers/misc/
 	depmod -A
 	modprobe rtmouse
 	echo rtmouse | sudo tee /etc/modules-load.d/rtmouse.conf > /dev/null
@@ -35,8 +23,8 @@ uninstall: ## remove rtmouse.ko and un-set auto load
 	rm /etc/modules-load.d/rtmouse.conf
 	rm /lib/modules/`uname -r`/kernel/drivers/misc/rtmouse.ko
 
-insmod: rtmouse.ko ## insmod rtmouse.ko
-	sudo insmod rtmouse.ko
+insmod: build ## insmod rtmouse.ko
+	sudo insmod $(MAKEFILE_DIR)/drivers/rtmouse/rtmouse.ko
 	sleep 1
 	-sudo chmod 666 /dev/rtbuzzer*
 	-sudo chmod 666 /dev/rtcounter*
