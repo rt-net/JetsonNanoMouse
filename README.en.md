@@ -2,24 +2,24 @@
 
 # JetsonNanoMouse
 
-Jetson Nano Mouseのデバイスドライバです。
+A linux device driver of Jetson Nano Mouse
 
-## 使い方
+## Usage
 
-このリポジトリを`git clone`でダウンロード後、ダウンロードしたディレクトリ内で以下のコマンドを実行します。
+After downloading(`git clone`) this repository, run the following commands in the directory.
 
 ```sh
 make
 sudo make install
 ```
 
-`/dev/rtlightsensor0`や`/dev/rtled0`などのデバイスファイルが作成されていることを確認します。
+Make sure that device files (`/dev/rtlightsensor0`, `/dev/rtled0`, and so on) has been created.
 
 ## License
 
 (C) 2019-2020 RT Coporation \<shop@rt-net.jp\>
 
-このリポジトリはGPLv2ライセンス（[GPL-2.0-only](https://spdx.org/licenses/GPL-2.0-only.html)）で公開されています。詳細は[LICENSE](./LICENSE)を確認してください。
+This repository is licensed under the GPLv2 License ([GPL-2.0-only](https://spdx.org/licenses/GPL-2.0-only.html)), see [LICENSE](./LICENSE).
 
 ### Acknowledgements
 
