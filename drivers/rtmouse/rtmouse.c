@@ -687,7 +687,7 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 	int prescale = 0;
 	int oldmode = 0;
 
-	printk(KERN_INFO "%s: set 0x%x to %d[Hz]\n", DRIVER_NAME, client->addr,
+	printk(KERN_DEBUG "%s: set 0x%x to %d[Hz]\n", DRIVER_NAME, client->addr,
 	       freq);
 
 	mutex_lock(&dev_info->lock);
