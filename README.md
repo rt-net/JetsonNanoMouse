@@ -4,6 +4,8 @@
 
 Jetson Nano Mouseのデバイスドライバです。
 
+![](https://rt-net.github.io/images/jetson-nano-mouse/Jetson-Nano-Mouse-500x500.png)
+
 ## インストール方法
 
 Jetson-IOを実行して`spi1`を有効にします。詳細は[wiki](https://github.com/rt-net/JetsonNanoMouse/wiki/Jetson-IO%E3%82%92%E7%94%A8%E3%81%84%E3%81%A6SPI1%E3%82%92%E6%9C%89%E5%8A%B9%E5%8C%96)を参照してください。
