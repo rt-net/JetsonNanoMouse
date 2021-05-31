@@ -11,12 +11,12 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -39,23 +39,25 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.3");
+MODULE_VERSION("0.1.4");
 
 /* --- GPIO Pins --- */
-#define GPIO_LED0 13	 // PIN22
-#define GPIO_LED1 15	 // PIN18
-#define GPIO_LED2 232	// PIN16
-#define GPIO_LED3 79	 // PIN16
-#define GPIO_SW0 78	  // PIN40
-#define GPIO_SW1 12	  // PIN37
-#define GPIO_SW2 77	  // PIN38
-#define GPIO_SEN_R 194       // PIN15
-#define GPIO_SEN_L 149       // PIN29
-#define GPIO_SEN_RF 14       // PI13
-#define GPIO_SEN_LF 50       // PIN11
+#define GPIO_LED0 13	     // PIN22
+#define GPIO_LED1 15	     // PIN18
+#define GPIO_LED2 232	     // PIN16
+#define GPIO_LED3 79	     // PIN16
+#define GPIO_SW0 78	     // PIN40
+#define GPIO_SW1 12	     // PIN37
+#define GPIO_SW2 77	     // PIN38
+#define GPIO_SEN_R 194	     // PIN15
+#define GPIO_SEN_L 149	     // PIN29
+#define GPIO_SEN_RF 14	     // PI13
+#define GPIO_SEN_LF 50	     // PIN11
 #define GPIO_MOTOR_EN 200    // PIN31
 #define GPIO_MOTOR_DIR_R 168 // PIN32
 #define GPIO_MOTOR_DIR_L 216 // PIN7
+
+#define GPIO_SPI_CS 19 // PIN24
 
 #define MAX_BUFLEN 64
 #define DEBOUNCE_TIME 50
@@ -142,7 +144,8 @@ static int _minor_motorrawl = DEV_MINOR;
 
 /* SPI Parameters */
 static int spi_bus_num = 0;
-static int spi_chip_select = 0;
+// static int spi_chip_select = 0;
+static int spi_chip_select = 1;  // To work around the problem of SPI_CS not working properly.
 
 /* --- A/D Parameters --- */
 #define MCP320X_PACKET_SIZE 3
@@ -470,31 +473,47 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 
 	/* get values through MCP3204 */
 	/* Right side */
+	gpio_set_value(GPIO_SPI_CS, 0);
 	or = mcp3204_get_value(R_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_R, 1);
 	udelay(usecs);
+	gpio_set_value(GPIO_SPI_CS, 0);
 	r = mcp3204_get_value(R_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_R, 0);
 	udelay(usecs);
 	/* Left side */
+	gpio_set_value(GPIO_SPI_CS, 0);
 	ol = mcp3204_get_value(L_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_L, 1);
 	udelay(usecs);
+	gpio_set_value(GPIO_SPI_CS, 0);
 	l = mcp3204_get_value(L_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_L, 0);
 	udelay(usecs);
 	/* Right front side */
+	gpio_set_value(GPIO_SPI_CS, 0);
 	orf = mcp3204_get_value(RF_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_RF, 1);
 	udelay(usecs);
+	gpio_set_value(GPIO_SPI_CS, 0);
 	rf = mcp3204_get_value(RF_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_RF, 0);
 	udelay(usecs);
 	/* Left front side */
+	gpio_set_value(GPIO_SPI_CS, 0);
 	olf = mcp3204_get_value(LF_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_LF, 1);
 	udelay(usecs);
+	gpio_set_value(GPIO_SPI_CS, 0);
 	lf = mcp3204_get_value(LF_AD_CH);
+	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_LF, 0);
 	udelay(usecs);
 
@@ -2397,6 +2416,7 @@ static int __init init_mod(void)
 	retval = gpio_request(GPIO_SEN_L, "sysfs");
 	retval = gpio_request(GPIO_SEN_RF, "sysfs");
 	retval = gpio_request(GPIO_SEN_LF, "sysfs");
+	retval = gpio_request(GPIO_SPI_CS, "sysfs");
 
 	retval = gpio_direction_output(GPIO_SEN_R, 0);
 	retval = gpio_export(GPIO_SEN_R, 0);
@@ -2406,6 +2426,9 @@ static int __init init_mod(void)
 	retval = gpio_export(GPIO_SEN_RF, 0);
 	retval = gpio_direction_output(GPIO_SEN_LF, 0);
 	retval = gpio_export(GPIO_SEN_LF, 0);
+
+	retval = gpio_direction_output(GPIO_SPI_CS, 1);
+	retval = gpio_export(GPIO_SPI_CS, true);
 
 	if (!gpio_is_valid(GPIO_MOTOR_DIR_R)) {
 		printk(KERN_INFO "GPIO: invalid MOTORDIRR GPIO\n");
