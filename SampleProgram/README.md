@@ -1,8 +1,8 @@
 # Sample Program
 
-このディレクトリにはLED、スイッチ、ブザーなどのRaspberryPiMouseの周辺機器を使うサンプルコードがあります。
+このディレクトリにはLED、スイッチ、ブザーなどのJetson Nano Mouseの周辺機器を使うサンプルコードがあります。
 
-This directory contains examples how to use RaspberryPiMouse's peripherals like LEDs, switches, buzzer, etc.
+This directory contains examples how to use Jetson Nano Moue's peripherals like LEDs, switches, buzzer, etc.
 
 このディレクトリはApache 2.0ライセンスで公開されています。詳細は[SampleProgram / LICENSE](./LICENSE)を確認してください。
 
@@ -58,11 +58,17 @@ The LED0 ~ LED3 blinks.
 キーボード入力でブザーを鳴らします。
 入力キーと音階のペアは[./SCALE](./SCALE)を参照してください。
 
+※正しい音階で鳴らないのは仕様です。
+詳細は製品マニュアルをご覧ください。
+
 '0'を入力するとブザーが止まります。
 'c'を入力するとプログラムが終了します。（Shell ScriptではCtrl-cで終了します。）
 
 Beep the buzzer with keyboard input. 
 Refer to the [./SCALE](./SCALE) file for the pairs of input characters and scales.
+
+※The sound is not in the correct scale.
+Please refer to the product manual for details.
 
 Press '0' to stop beeping.
 Press 'c' to terminate the program. (Press Ctrl-c for the Shell Script.)
