@@ -17,11 +17,18 @@ sudo make install
 
 Make sure that device files (`/dev/rtlightsensor0`, `/dev/rtled0`, and so on) has been created.
 
+## Sample program
+
+For example code of device files, please refer to [./samples](./samples).
+
 ## License
 
 (C) 2019-2020 RT Coporation \<shop@rt-net.jp\>
 
 This repository is licensed under the GPLv2 License ([GPL-2.0-only](https://spdx.org/licenses/GPL-2.0-only.html)), see [LICENSE](./LICENSE).
+
+`samples` directory is licensed under the
+[Apache 2.0 License](https://spdx.org/licenses/Apache-2.0.html), see [./samples/LICENSE](./samples/LICENSE).
 
 ### Acknowledgements
 
