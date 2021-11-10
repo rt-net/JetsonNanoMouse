@@ -20,7 +20,7 @@ cd JetsonNanoMouse
 ダウンロードしたディレクトリ内で以下のコマンドを実行します。
 
 ```sh
-make
+make build
 sudo make install
 ```
 

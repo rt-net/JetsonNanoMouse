@@ -11,7 +11,7 @@ Run "Jetson-IO" to enable `spi1`.  See the [wiki](https://github.com/rt-net/Jets
 After downloading(`git clone`) this repository, run the following commands in the directory.
 
 ```sh
-make
+make build
 sudo make install
 ```
 
