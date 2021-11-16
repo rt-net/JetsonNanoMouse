@@ -41,6 +41,9 @@ MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.3");
 
+/* --- Options --- */
+//#define USE_EXTERNAL_CLOCK
+
 /* --- GPIO Pins --- */
 #define GPIO_LED0 13	 // PIN22
 #define GPIO_LED1 15	 // PIN18
@@ -177,8 +180,6 @@ static int spi_chip_select = 0;
 #define PCA9685_SLEEP 0x10
 #define PCA9685_ALLCALL 0x01
 #define PCA9685_OUTDRV 0x04
-
-//#define USE_EXTERNAL_CLOCK
 
 #ifdef USE_EXTERNAL_CLOCK
 #define PCA9685_CLOCK 0x40
