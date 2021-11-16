@@ -41,6 +41,10 @@ MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.1.4");
 
+/* --- Options --- */
+#define ALTERNATIVE_SPI_CS
+
+
 /* --- GPIO Pins --- */
 #define GPIO_LED0 13	     // PIN22
 #define GPIO_LED1 15	     // PIN18
@@ -144,8 +148,14 @@ static int _minor_motorrawl = DEV_MINOR;
 
 /* SPI Parameters */
 static int spi_bus_num = 0;
-// static int spi_chip_select = 0;
+
+#ifndef ALTERNATIVE_SPI_CS
+static int spi_chip_select = 0;
+#endif
+#ifdef ALTERNATIVE_SPI_CS
 static int spi_chip_select = 1;  // To work around the problem of SPI_CS not working properly.
+#endif
+
 
 /* --- A/D Parameters --- */
 #define MCP320X_PACKET_SIZE 3
@@ -472,6 +482,37 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 		return 0; /* End of file */
 
 	/* get values through MCP3204 */
+#ifndef ALTERNATIVE_SPI_CS
+	/* Right side */
+	or = mcp3204_get_value(R_AD_CH);
+	gpio_set_value(GPIO_SEN_R, 1);
+	udelay(usecs);
+	r = mcp3204_get_value(R_AD_CH);
+	gpio_set_value(GPIO_SEN_R, 0);
+	udelay(usecs);
+	/* Left side */
+	ol = mcp3204_get_value(L_AD_CH);
+	gpio_set_value(GPIO_SEN_L, 1);
+	udelay(usecs);
+	l = mcp3204_get_value(L_AD_CH);
+	gpio_set_value(GPIO_SEN_L, 0);
+	udelay(usecs);
+	/* Right front side */
+	orf = mcp3204_get_value(RF_AD_CH);
+	gpio_set_value(GPIO_SEN_RF, 1);
+	udelay(usecs);
+	rf = mcp3204_get_value(RF_AD_CH);
+	gpio_set_value(GPIO_SEN_RF, 0);
+	udelay(usecs);
+	/* Left front side */
+	olf = mcp3204_get_value(LF_AD_CH);
+	gpio_set_value(GPIO_SEN_LF, 1);
+	udelay(usecs);
+	lf = mcp3204_get_value(LF_AD_CH);
+	gpio_set_value(GPIO_SEN_LF, 0);
+	udelay(usecs);
+#endif
+#ifdef ALTERNATIVE_SPI_CS
 	/* Right side */
 	gpio_set_value(GPIO_SPI_CS, 0);
 	or = mcp3204_get_value(R_AD_CH);
@@ -516,6 +557,7 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 	gpio_set_value(GPIO_SPI_CS, 1);
 	gpio_set_value(GPIO_SEN_LF, 0);
 	udelay(usecs);
+#endif
 
 	/* set sensor data to rw_buf(static buffer) */
 	snprintf(rw_buf, sizeof(rw_buf), "%d %d %d %d\n", rf - orf, r - or,
@@ -2416,7 +2458,9 @@ static int __init init_mod(void)
 	retval = gpio_request(GPIO_SEN_L, "sysfs");
 	retval = gpio_request(GPIO_SEN_RF, "sysfs");
 	retval = gpio_request(GPIO_SEN_LF, "sysfs");
+#ifdef ALTERNATIVE_SPI_CS
 	retval = gpio_request(GPIO_SPI_CS, "sysfs");
+#endif
 
 	retval = gpio_direction_output(GPIO_SEN_R, 0);
 	retval = gpio_export(GPIO_SEN_R, 0);
@@ -2427,8 +2471,10 @@ static int __init init_mod(void)
 	retval = gpio_direction_output(GPIO_SEN_LF, 0);
 	retval = gpio_export(GPIO_SEN_LF, 0);
 
+#ifdef ALTERNATIVE_SPI_CS
 	retval = gpio_direction_output(GPIO_SPI_CS, 1);
 	retval = gpio_export(GPIO_SPI_CS, true);
+#endif
 
 	if (!gpio_is_valid(GPIO_MOTOR_DIR_R)) {
 		printk(KERN_INFO "GPIO: invalid MOTORDIRR GPIO\n");
@@ -2579,6 +2625,9 @@ static void __exit cleanup_mod(void)
 	gpio_set_value(GPIO_SEN_L, 0);
 	gpio_set_value(GPIO_SEN_RF, 0);
 	gpio_set_value(GPIO_SEN_LF, 0);
+#ifdef ALTERNATIVE_SPI_CS
+	gpio_set_value(GPIO_SPI_CS, 0);
+#endif
 	gpio_set_value(GPIO_MOTOR_EN, 0);
 	/* sysfs: reverses the effect of exporting to userspace */
 	gpio_unexport(GPIO_LED0);
@@ -2589,6 +2638,9 @@ static void __exit cleanup_mod(void)
 	gpio_unexport(GPIO_SEN_L);
 	gpio_unexport(GPIO_SEN_RF);
 	gpio_unexport(GPIO_SEN_LF);
+#ifdef ALTERNATIVE_SPI_CS
+	gpio_unexport(GPIO_SPI_CS);
+#endif
 	gpio_unexport(GPIO_MOTOR_EN);
 	gpio_unexport(GPIO_MOTOR_DIR_R);
 	gpio_unexport(GPIO_MOTOR_DIR_L);
@@ -2604,6 +2656,9 @@ static void __exit cleanup_mod(void)
 	gpio_free(GPIO_SEN_L);
 	gpio_free(GPIO_SEN_RF);
 	gpio_free(GPIO_SEN_LF);
+#ifdef ALTERNATIVE_SPI_CS
+	gpio_free(GPIO_SPI_CS);
+#endif
 	gpio_free(GPIO_MOTOR_EN);
 	gpio_free(GPIO_MOTOR_DIR_R);
 	gpio_free(GPIO_MOTOR_DIR_L);
