@@ -4,7 +4,7 @@
  * rtmouse.c
  * Jetson Nano Mouse device driver
  *
- * Version: 0.1.0
+ * Version: 0.1.3
  *
  * Copyright (C) 2019-2020 RT Corporation <shop@rt-net.jp>
  *
