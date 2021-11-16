@@ -178,6 +178,15 @@ static int spi_chip_select = 0;
 #define PCA9685_ALLCALL 0x01
 #define PCA9685_OUTDRV 0x04
 
+//#define USE_EXTERNAL_CLOCK
+
+#ifdef USE_EXTERNAL_CLOCK
+#define PCA9685_CLOCK 0x40
+#endif
+#ifndef USE_EXTERNAL_CLOCK
+#define PCA9685_CLOCK 0x00
+#endif
+
 /* --- Function Declarations --- */
 static int mcp3204_remove(struct spi_device *spi);
 static int mcp3204_probe(struct spi_device *spi);
@@ -705,7 +714,7 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 
 	/* set device sleep */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					(oldmode & 0x7F) | PCA9685_SLEEP);
+					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
@@ -713,6 +722,19 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 		mutex_unlock(&dev_info->lock);
 		return -ENODEV;
 	}
+#ifdef USE_EXTERNAL_CLOCK
+	/* set external clock */
+	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP |
+					    PCA9685_CLOCK);
+	if (ret < 0) {
+		printk(KERN_ERR
+		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
+		       __func__, client->addr);
+		mutex_unlock(&dev_info->lock);
+		return -ENODEV;
+	}
+#endif
 	/* set prescale */
 	// (int)(round(25*10^6/4096/freq) - 1
 	if ((25000000 * 10 / 4096 / freq) % 10 < 5) {
@@ -729,7 +751,10 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 		return -ENODEV;
 	}
 	/* get device awake */
-	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1, oldmode);
+	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
+					(oldmode & ~PCA9685_RESTART) |
+					    PCA9685_CLOCK);
+
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
@@ -738,8 +763,8 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 		return -ENODEV;
 	}
 	udelay(500);
-	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					oldmode | PCA9685_RESTART);
+	ret = i2c_smbus_write_byte_data(
+	    client, PCA9685_MODE1, oldmode | PCA9685_RESTART | PCA9685_CLOCK);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
