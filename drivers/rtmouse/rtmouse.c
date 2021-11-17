@@ -4,7 +4,7 @@
  * rtmouse.c
  * Jetson Nano Mouse device driver
  *
- * Version: 0.1.3
+ * Version: 0.1.4
  *
  * Copyright (C) 2019-2020 RT Corporation <shop@rt-net.jp>
  *
@@ -39,7 +39,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.3");
+MODULE_VERSION("0.1.4");
 
 /* --- Options --- */
 //#define USE_EXTERNAL_CLOCK
