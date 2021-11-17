@@ -10,12 +10,14 @@ Jetson Nano Mouseのデバイスドライバです。
 
 Jetson-IOを実行して`spi1`を有効にします。詳細は[wiki](https://github.com/rt-net/JetsonNanoMouse/wiki/Jetson-IO%E3%82%92%E7%94%A8%E3%81%84%E3%81%A6SPI1%E3%82%92%E6%9C%89%E5%8A%B9%E5%8C%96)を参照してください。
 
-このリポジトリを`git clone`でダウンロードし、
+このリポジトリを`git clone`でダウンロードします。
 
 ```sh
 git clone https://github.com/rt-net/JetsonNanoMouse.git
 cd JetsonNanoMouse
 ```
+
+必要に応じて[`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c)のオプションを編集します。
 
 ダウンロードしたディレクトリ内で以下のコマンドを実行します。
 
@@ -25,6 +27,16 @@ sudo make install
 ```
 
 `/dev/rtlightsensor0`や`/dev/rtled0`などのデバイスファイルが作成されていることを確認します。
+
+## オプション
+
+[`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c)のオプションは以下の通りです。
+
+| オプション | 有効な場合 | 無効な場合 |
+| --- | --- | --- |
+| USE_EXTERNAL_CLOCK | モータドライバへの信号出力ICで外部クロックを使用 ※1 | モータドライバへの信号出力ICで内部クロックを使用 |
+
+※1 左右のモータの回転数差の低減が期待できます（[#16](https://github.com/rt-net/JetsonNanoMouse/issues/16)）
 
 ## サンプルプログラム
 
@@ -92,4 +104,35 @@ This project includes the code to control PCA9685([adafruit/Adafruit_Python_PCA9
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+```
+
+This project includes the code to control PCA9685([adafruit/Adafruit-PWM-Servo-Driver-Library](https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library)) licensed under the 3-clause BSD License.
+
+```
+Software License Agreement (BSD License)
+
+Copyright (c) 2012, Adafruit Industries
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright
+notice, this list of conditions and the following disclaimer in the
+documentation and/or other materials provided with the distribution.
+3. Neither the name of the copyright holders nor the
+names of its contributors may be used to endorse or promote products
+derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ''AS IS'' AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
