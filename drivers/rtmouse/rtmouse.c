@@ -715,7 +715,8 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 
 	/* set device sleep */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP);
+					(oldmode & ~PCA9685_RESTART) |
+					    PCA9685_SLEEP);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
@@ -726,8 +727,8 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 #ifdef USE_EXTERNAL_CLOCK
 	/* set external clock */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP |
-					    PCA9685_CLOCK);
+					(oldmode & ~PCA9685_RESTART) |
+					    PCA9685_SLEEP | PCA9685_CLOCK);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
