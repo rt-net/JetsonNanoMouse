@@ -153,9 +153,9 @@ static int spi_bus_num = 0;
 static int spi_chip_select = 0;
 #endif
 #ifdef ALTERNATIVE_SPI_CS
-static int spi_chip_select = 1;  // To work around the problem of SPI_CS not working properly.
+// To work around the problem of SPI_CS not working properly.
+static int spi_chip_select = 1;
 #endif
-
 
 /* --- A/D Parameters --- */
 #define MCP320X_PACKET_SIZE 3
@@ -488,8 +488,8 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 	if (*f_pos > 0)
 		return 0; /* End of file */
 
-	/* get values through MCP3204 */
 #ifndef ALTERNATIVE_SPI_CS
+	/* get values through MCP3204 */
 	/* Right side */
 	or = mcp3204_get_value(R_AD_CH);
 	gpio_set_value(GPIO_SEN_R, 1);
@@ -520,6 +520,7 @@ static ssize_t sensor_read(struct file *filep, char __user *buf, size_t count,
 	udelay(usecs);
 #endif
 #ifdef ALTERNATIVE_SPI_CS
+	/* get values through MCP3204 */
 	/* Right side */
 	gpio_set_value(GPIO_SPI_CS, 0);
 	or = mcp3204_get_value(R_AD_CH);
