@@ -8,7 +8,16 @@ A linux device driver of Jetson Nano Mouse
 
 Run "Jetson-IO" to enable `spi1`.  See the [wiki](https://github.com/rt-net/JetsonNanoMouse/wiki/Jetson-IO%E3%82%92%E7%94%A8%E3%81%84%E3%81%A6SPI1%E3%82%92%E6%9C%89%E5%8A%B9%E5%8C%96) for details.
 
-After downloading(`git clone`) this repository, run the following commands in the directory.
+First, download this repository using `git clone` command.
+
+```sh
+git clone https://github.com/rt-net/JetsonNanoMouse.git
+cd JetsonNanoMouse
+```
+
+Next, modify the option defined in [`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c).
+
+Finally, run the following commands in the directory.
 
 ```sh
 make build
@@ -16,6 +25,16 @@ sudo make install
 ```
 
 Make sure that device files (`/dev/rtlightsensor0`, `/dev/rtled0`, and so on) has been created.
+
+## Options
+
+Valid options for [`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c).
+
+| Option | Enabled | Disabled |
+| --- | --- | --- |
+| USE_EXTERNAL_CLOCK | Use external clock in PWM output IC to motor driver *1 | Use internal clock in PWM output IC to motor driver |
+
+*1 Expected to reduce the difference in speed between the left and right motors. （[#16](https://github.com/rt-net/JetsonNanoMouse/issues/16)）
 
 ## Sample program
 

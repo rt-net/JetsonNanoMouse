@@ -10,12 +10,14 @@ Jetson Nano Mouseのデバイスドライバです。
 
 Jetson-IOを実行して`spi1`を有効にします。詳細は[wiki](https://github.com/rt-net/JetsonNanoMouse/wiki/Jetson-IO%E3%82%92%E7%94%A8%E3%81%84%E3%81%A6SPI1%E3%82%92%E6%9C%89%E5%8A%B9%E5%8C%96)を参照してください。
 
-このリポジトリを`git clone`でダウンロードし、
+このリポジトリを`git clone`でダウンロードします。
 
 ```sh
 git clone https://github.com/rt-net/JetsonNanoMouse.git
 cd JetsonNanoMouse
 ```
+
+必要に応じて[`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c)のオプションを編集します。
 
 ダウンロードしたディレクトリ内で以下のコマンドを実行します。
 
@@ -25,6 +27,16 @@ sudo make install
 ```
 
 `/dev/rtlightsensor0`や`/dev/rtled0`などのデバイスファイルが作成されていることを確認します。
+
+## オプション
+
+[`drivers/rtmouse/rtmouse.c`](drivers/rtmouse/rtmouse.c)のオプションは以下の通りです。
+
+| オプション | 有効な場合 | 無効な場合 |
+| --- | --- | --- |
+| USE_EXTERNAL_CLOCK | モータドライバへの信号出力ICで外部クロックを使用 ※1 | モータドライバへの信号出力ICで内部クロックを使用 |
+
+※1 左右のモータの回転数差の低減が期待できます（[#16](https://github.com/rt-net/JetsonNanoMouse/issues/16)）
 
 ## サンプルプログラム
 
