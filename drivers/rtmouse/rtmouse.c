@@ -11,12 +11,12 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; version 2.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
@@ -45,17 +45,17 @@ MODULE_VERSION("0.1.4");
 //#define USE_EXTERNAL_CLOCK
 
 /* --- GPIO Pins --- */
-#define GPIO_LED0 13	 // PIN22
-#define GPIO_LED1 15	 // PIN18
-#define GPIO_LED2 232	// PIN16
-#define GPIO_LED3 79	 // PIN16
-#define GPIO_SW0 78	  // PIN40
-#define GPIO_SW1 12	  // PIN37
-#define GPIO_SW2 77	  // PIN38
-#define GPIO_SEN_R 194       // PIN15
-#define GPIO_SEN_L 149       // PIN29
-#define GPIO_SEN_RF 14       // PI13
-#define GPIO_SEN_LF 50       // PIN11
+#define GPIO_LED0 13	     // PIN22
+#define GPIO_LED1 15	     // PIN18
+#define GPIO_LED2 232	     // PIN16
+#define GPIO_LED3 79	     // PIN16
+#define GPIO_SW0 78	     // PIN40
+#define GPIO_SW1 12	     // PIN37
+#define GPIO_SW2 77	     // PIN38
+#define GPIO_SEN_R 194	     // PIN15
+#define GPIO_SEN_L 149	     // PIN29
+#define GPIO_SEN_RF 14	     // PI13
+#define GPIO_SEN_LF 50	     // PIN11
 #define GPIO_MOTOR_EN 200    // PIN31
 #define GPIO_MOTOR_DIR_R 168 // PIN32
 #define GPIO_MOTOR_DIR_L 216 // PIN7
@@ -715,7 +715,8 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 
 	/* set device sleep */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP);
+					(oldmode & ~PCA9685_RESTART) |
+					    PCA9685_SLEEP);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",
@@ -726,8 +727,8 @@ static int i2c_pwm_set_freq(struct i2c_device_info *dev_info, int freq)
 #ifdef USE_EXTERNAL_CLOCK
 	/* set external clock */
 	ret = i2c_smbus_write_byte_data(client, PCA9685_MODE1,
-					(oldmode & ~PCA9685_RESTART) | PCA9685_SLEEP |
-					    PCA9685_CLOCK);
+					(oldmode & ~PCA9685_RESTART) |
+					    PCA9685_SLEEP | PCA9685_CLOCK);
 	if (ret < 0) {
 		printk(KERN_ERR
 		       "%s: Failed writing to i2c counter device, addr=0x%x\n",

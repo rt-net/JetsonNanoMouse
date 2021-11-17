@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+    - '.github/workflows/ci.yml'
+    - '.test/bin/**'
+    - '.test/lint.sh'
+    - 'drivers/**'
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+    - '.github/workflows/ci.yml'
+    - '.test/bin/**'
+    - '.test/lint.sh'
+    - 'drivers/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Lint
+        run: |
+          ./.test/lint.sh
+
