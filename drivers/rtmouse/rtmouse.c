@@ -39,7 +39,7 @@
 MODULE_AUTHOR("RT Corporation");
 MODULE_DESCRIPTION("A device driver of Jetson Nano Mouse");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.5");
+MODULE_VERSION("0.1.6");
 
 /* --- Options --- */
 #define ALTERNATIVE_SPI_CS
@@ -76,9 +76,10 @@ MODULE_VERSION("0.1.5");
 #define NUM_DEV_SWITCHES 1
 #define NUM_DEV_SENSOR 1
 #define NUM_DEV_MOTOREN 1
+#define NUM_DEV_MOTOR 1
 #define NUM_DEV_TOTAL                                                          \
 	(NUM_DEV_LED + NUM_DEV_SWITCH + NUM_DEV_SWITCHES + NUM_DEV_SENSOR +    \
-	 NUM_DEV_MOTOREN)
+	 NUM_DEV_MOTOREN + NUM_DEV_MOTOR)
 
 #define NUM_DEV_CNTR 1
 #define NUM_DEV_CNTL 1
@@ -87,6 +88,7 @@ MODULE_VERSION("0.1.5");
 #define NUM_DEV_BUZZER 1
 #define NUM_DEV_MOTORRAWR 1
 #define NUM_DEV_MOTORRAWL 1
+
 #define NUM_DEV_PWM_TOTAL                                                      \
 	(NUM_DEV_BUZZER + NUM_DEV_MOTORRAWR + NUM_DEV_MOTORRAWL)
 
@@ -101,6 +103,7 @@ MODULE_VERSION("0.1.5");
 #define DEVNAME_SENSOR "rtlightsensor"
 #define DEVNAME_BUZZER "rtbuzzer"
 #define DEVNAME_MOTOREN "rtmotoren"
+#define DEVNAME_MOTOR "rtmotor"
 #define DEVNAME_CNTR "rtcounter_r"
 #define DEVNAME_CNTL "rtcounter_l"
 #define DEVNAME_MOTORRAWR "rtmotor_raw_r"
@@ -113,6 +116,7 @@ static struct class *class_switch = NULL;
 static struct class *class_switches = NULL;
 static struct class *class_sensor = NULL;
 static struct class *class_motoren = NULL;
+static struct class *class_motor = NULL;
 static struct class *class_buzzer = NULL;
 static struct class *class_motorrawr = NULL;
 static struct class *class_motorrawl = NULL;
@@ -136,6 +140,9 @@ static int _minor_sensor = DEV_MINOR;
 
 static int _major_motoren = DEV_MAJOR;
 static int _minor_motoren = DEV_MINOR;
+
+static int _major_motor = DEV_MAJOR;
+static int _minor_motor = DEV_MINOR;
 
 static int _major_buzzer = DEV_MAJOR;
 static int _minor_buzzer = DEV_MINOR;
@@ -355,6 +362,35 @@ static int led_del(int ledno)
 }
 
 /* --- Function for device file operations --- */
+/* Parse motor command  */
+static int parseMotorCmd(const char __user *buf, size_t count, int *ret)
+{
+	int r_motor_val, l_motor_val, time_val;
+	char *newbuf = kmalloc(sizeof(char) * count, GFP_KERNEL);
+
+	if (copy_from_user(newbuf, buf, sizeof(char) * count)) {
+		kfree(newbuf);
+		return -EFAULT;
+	}
+
+	sscanf(newbuf, "%d%d%d\n", &l_motor_val, &r_motor_val, &time_val);
+
+	kfree(newbuf);
+
+	mutex_lock(&lock);
+
+	set_motor_l_freq(l_motor_val);
+	set_motor_r_freq(r_motor_val);
+
+	msleep_interruptible(time_val);
+
+	set_motor_l_freq(0);
+	set_motor_r_freq(0);
+
+	mutex_unlock(&lock);
+
+	return count;
+}
 
 /*
  * led_write - Trun ON/OFF LEDs
@@ -612,6 +648,20 @@ static ssize_t motoren_write(struct file *filep, const char __user *buf,
 		return sizeof(char);
 	}
 	return 0;
+}
+
+/*
+ *  motor_write - Output frequency to right and left both motors
+ *  Write function of /dev/rtmotor
+ */
+static ssize_t motor_write(struct file *filep, const char __user *buf,
+			   size_t count, loff_t *f_pos)
+{
+	int tmp;
+	int bufcnt;
+	bufcnt = parseMotorCmd(buf, count, &tmp);
+
+	return bufcnt;
 }
 
 /*
@@ -1200,6 +1250,12 @@ static struct file_operations motoren_fops = {
     .write = motoren_write,
     .release = dev_release,
 };
+/* /dev/rtmotor */
+static struct file_operations motor_fops = {
+    .open = dev_open,
+    .write = motor_write,
+    .release = dev_release,
+};
 /* /dev/rtcounter_* */
 static struct file_operations rtcnt_fops = {
     .open = i2c_dev_open,
@@ -1371,6 +1427,51 @@ static int motoren_register_dev(void)
 	} else {
 		device_create(class_motoren, NULL, devno, NULL,
 			      DEVNAME_MOTOREN "%u", _minor_motoren);
+	}
+
+	cdev_index++;
+
+	return 0;
+}
+
+/* /dev/rtmotor0 */
+static int motor_register_dev(void)
+{
+	int retval;
+	dev_t dev;
+	dev_t devno;
+
+	/* 空いているメジャー番号を使ってメジャー
+		&マイナー番号をカーネルに登録する */
+	retval = alloc_chrdev_region(&dev, /* 結果を格納するdev_t構造体 */
+				     DEV_MINOR, /* ベースマイナー番号 */
+				     NUM_DEV_MOTOR, /* デバイスの数 */
+				     DEVNAME_MOTOR /* デバイスドライバの名前 */
+	);
+
+	if (retval < 0) {
+		printk(KERN_ERR "alloc_chrdev_region failed.\n");
+		return retval;
+	}
+	_major_motor = MAJOR(dev);
+
+	/* デバイスクラスを作成する */
+	class_motor = class_create(THIS_MODULE, DEVNAME_MOTOR);
+	if (IS_ERR(class_motor)) {
+		return PTR_ERR(class_motor);
+	}
+
+	devno = MKDEV(_major_motor, _minor_motor);
+	/* キャラクタデバイスとしてこのモジュールをカーネルに登録する */
+	cdev_init(&(cdev_array[cdev_index]), &motor_fops);
+	cdev_array[cdev_index].owner = THIS_MODULE;
+	if (cdev_add(&(cdev_array[cdev_index]), devno, 1) < 0) {
+		/* 登録に失敗した */
+		printk(KERN_ERR "cdev_add failed minor = %d\n", _minor_motor);
+	} else {
+		/* デバイスノードの作成 */
+		device_create(class_motor, NULL, devno, NULL,
+			      DEVNAME_MOTOR "%u", _minor_motor);
 	}
 
 	cdev_index++;
@@ -2541,6 +2642,12 @@ static int __init init_mod(void)
 		       DRIVER_NAME);
 		return retval;
 	}
+	retval = motor_register_dev();
+	if (retval != 0) {
+		printk(KERN_ALERT "%s: motor driver register failed.\n",
+		       DRIVER_NAME);
+		return retval;
+	}
 	retval = sensor_register_dev();
 	if (retval != 0) {
 		printk(KERN_ALERT "%s: sensor driver register failed.\n",
@@ -2622,6 +2729,19 @@ static void __exit cleanup_mod(void)
 	devno = MKDEV(_major_sensor, _minor_sensor);
 	device_destroy(class_sensor, devno);
 	unregister_chrdev_region(devno, NUM_DEV_SENSOR);
+
+	/* /dev/rtmotor_raw_r0 */
+	devno = MKDEV(_major_motorrawr, _minor_motorrawr);
+	device_destroy(class_motorrawr, devno);
+	unregister_chrdev_region(devno, NUM_DEV_MOTORRAWR);
+	/* /dev/rtmotor_raw_l0 */
+	devno = MKDEV(_major_motorrawl, _minor_motorrawl);
+	device_destroy(class_motorrawl, devno);
+	unregister_chrdev_region(devno, NUM_DEV_MOTORRAWL);
+	/* /dev/rtmotor0 */
+	devno = MKDEV(_major_motor, _minor_motor);
+	device_destroy(class_motor, devno);
+	unregister_chrdev_region(devno, NUM_DEV_MOTOR);
 
 	class_destroy(class_led);
 	class_destroy(class_switch);
