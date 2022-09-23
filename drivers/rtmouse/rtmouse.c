@@ -205,7 +205,12 @@ static int spi_chip_select = 1;
 #define PCA9685_CLOCK 0x00
 #endif
 
+/* Motor Parameter */
+#define MOTOR_UNCONTROLLABLE_FREQ 5
+
 /* --- Function Declarations --- */
+static void set_motor_r_freq(int freq);
+static void set_motor_l_freq(int freq);
 static int mcp3204_remove(struct spi_device *spi);
 static int mcp3204_probe(struct spi_device *spi);
 static unsigned int mcp3204_get_value(int channel);
@@ -215,6 +220,9 @@ static int i2c_rtcnt_remove(struct i2c_client *client);
 static int i2c_pwm_probe(struct i2c_client *client,
 			 const struct i2c_device_id *id);
 static int i2c_pwm_remove(struct i2c_client *client);
+
+static ssize_t pwm_motorr_write_core(int pwm_freq);
+static ssize_t pwm_motorl_write_core(int pwm_freq);
 
 /* --- Variable Type definitions --- */
 /* SPI */
@@ -359,6 +367,20 @@ static int led_del(int ledno)
 	}
 
 	return 0;
+}
+
+/* left motor function */
+static void set_motor_l_freq(int freq)
+{
+	pwm_motorl_write_core(freq);
+	return;
+}
+
+/* right motor function */
+static void set_motor_r_freq(int freq)
+{
+	pwm_motorr_write_core(freq);
+	return;
 }
 
 /* --- Function for device file operations --- */
@@ -1057,12 +1079,8 @@ static ssize_t pwm_buzzer_write(struct file *filep, const char __user *buf,
 static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
-	// struct i2c_device_info *dev_info = filep->private_data;
-	struct i2c_device_info *dev_info = i2c_pwm1_dev_info;
-
 	int ret = -1;
 	int pwm_freq = 0;
-	static int previous_pwm_freq = 0;
 
 	if (count < 0)
 		return 0;
@@ -1073,6 +1091,27 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 		       DRIVER_NAME, __func__);
 		return ret;
 	}
+
+	if (pwm_freq < 0) {
+		gpio_set_value(GPIO_MOTOR_DIR_R, 0);
+		pwm_freq *= -1;
+	} else {
+		gpio_set_value(GPIO_MOTOR_DIR_R, 1);
+	}
+
+	ret = pwm_motorr_write_core(pwm_freq);
+	if (ret < 0)
+		return ret;
+	return count;
+}
+
+static ssize_t pwm_motorr_write_core(int pwm_freq)
+{
+	// struct i2c_device_info *dev_info = filep->private_data;
+	struct i2c_device_info *dev_info = i2c_pwm1_dev_info;
+
+	int ret = 0;
+	static int previous_pwm_freq = 0;
 
 	if (pwm_freq < 0) {
 		gpio_set_value(GPIO_MOTOR_DIR_R, 0);
@@ -1111,7 +1150,7 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 		       pwm_freq);
 	}
 	previous_pwm_freq = pwm_freq;
-	return count;
+	return ret;
 }
 
 /*
@@ -1121,12 +1160,8 @@ static ssize_t pwm_motorr_write(struct file *filep, const char __user *buf,
 static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 				size_t count, loff_t *pos)
 {
-	// struct i2c_device_info *dev_info = filep->private_data;
-	struct i2c_device_info *dev_info = i2c_pwm0_dev_info;
-
 	int ret = -1;
 	int pwm_freq = 0;
-	static int previous_pwm_freq = 0;
 
 	if (count < 0)
 		return 0;
@@ -1137,6 +1172,20 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 		       DRIVER_NAME, __func__);
 		return ret;
 	}
+
+	ret = pwm_motorl_write_core(pwm_freq);
+	if (ret < 0)
+		return ret;
+	return count;
+}
+
+static ssize_t pwm_motorl_write_core(int pwm_freq)
+{
+	// struct i2c_device_info *dev_info = filep->private_data;
+	struct i2c_device_info *dev_info = i2c_pwm0_dev_info;
+
+	int ret = 0;
+	static int previous_pwm_freq = 0;
 
 	if (pwm_freq < 0) {
 		gpio_set_value(GPIO_MOTOR_DIR_L, 1);
@@ -1175,7 +1224,7 @@ static ssize_t pwm_motorl_write(struct file *filep, const char __user *buf,
 		       pwm_freq);
 	}
 	previous_pwm_freq = pwm_freq;
-	return count;
+	return ret;
 }
 
 /*
